@@ -15,7 +15,7 @@
         </li>
     </ul>
     <div id="binder">
-        <SKCanvasView @ref="_canvas" @onclick="CanvasClick" Width="816px" Height="1056px" OnPaintSurface="OnPaintSurface" />
+        <SKCanvasView tabindex="1" @ref="_canvas" @onclick="CanvasClick" @onkeydown="OnCanvasKeyDown" Width="1056" Height="816" OnPaintSurface="OnPaintSurface" />
     </div>
 </div>
 
@@ -23,6 +23,14 @@
     private SKCanvasView? _canvas;
     private float _currentX {get; set;} = 0; 
     private float _currentY {get; set;} = 0;
+    private float _cursorX {get; set;} = 96f;
+    private float _cursorY {get; set;} = 96f;
+    private float _pageWidth {get; set;} = 1056;
+    private float _fontSize {get; set;} = 22f;
+    private float _rightMargin {get; set;} = 96f; 
+    private float _leftMargin {get; set;} = 96f;
+    private float _topMargin {get; set;} = 96f;
+    private string _letter {get; set;} = string.Empty;
 
     private void OnPaintSurface(SKPaintSurfaceEventArgs args)
     {
@@ -30,17 +38,46 @@
         canvas.Clear(SKColors.LightGray);
 
         using var paint = new SKPaint {
-            Color=SKColors.Black,
+            Color = SKColors.Black,
+            StrokeWidth = 2,
             IsAntialias= true,
         };
-        canvas.DrawRect(_currentX, _currentY, 20f, 20f, paint);
+        canvas.DrawLine(_cursorX, _cursorY, _cursorX, _cursorY + _fontSize, paint);
     }
     private void CanvasClick(MouseEventArgs args)
     {
-        args.
-        _currentX = (float) args.ClientX;
-        _currentY = (float) args.ClientY;
-
+        _currentX = (float) args.OffsetX;
+        _currentY = (float) args.OffsetY;
+    }
+    private void OnCanvasKeyDown(KeyboardEventArgs args)
+    {
+        _letter = args.Key; 
+        
+        switch (args.Code){
+            case "Space": 
+                if(_cursorX + _fontSize < _pageWidth - _rightMargin){
+                    _cursorX += _fontSize;
+                }else {
+                    /* Move to next line */
+                    _cursorX = _leftMargin;
+                    _cursorY += _fontSize;
+                }
+                break;
+            case "Backspace":
+                if(_cursorX - _fontSize >= _leftMargin){
+                    _cursorX -= _fontSize;
+                }else {
+                    /* Move to previous line */
+                    if(_cursorY - _fontSize >= _topMargin){
+                        _cursorY -= _fontSize;
+                        _cursorX = _pageWidth - _rightMargin;
+                    }
+                }
+                break;
+            default: 
+                Console.WriteLine(args.Code);
+                break;
+        }
         _canvas?.Invalidate();
     }
 }    
