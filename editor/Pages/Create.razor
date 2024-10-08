@@ -1,0 +1,47 @@
+@page "/Create"
+@using SkiaSharp.Views.Blazor
+@using SkiaSharp
+
+<PageTitle>Create</PageTitle>
+
+<div id="document-interface">
+    <h1>Doc Name</h1>
+    <ul class="nav nav-underline">
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false">File</a>
+            <ul class="dropdown-menu">
+                <li><a class="dropdown-item">Save</a></li>
+            </ul>
+        </li>
+    </ul>
+    <div id="binder">
+        <SKCanvasView @ref="_canvas" @onclick="CanvasClick" Width="816px" Height="1056px" OnPaintSurface="OnPaintSurface" />
+    </div>
+</div>
+
+@code {
+    private SKCanvasView? _canvas;
+    private float _currentX {get; set;} = 0; 
+    private float _currentY {get; set;} = 0;
+
+    private void OnPaintSurface(SKPaintSurfaceEventArgs args)
+    {
+        var canvas = args.Surface.Canvas; 
+        canvas.Clear(SKColors.LightGray);
+
+        using var paint = new SKPaint {
+            Color=SKColors.Black,
+            IsAntialias= true,
+        };
+        canvas.DrawRect(_currentX, _currentY, 20f, 20f, paint);
+    }
+    private void CanvasClick(MouseEventArgs args)
+    {
+        args.
+        _currentX = (float) args.ClientX;
+        _currentY = (float) args.ClientY;
+
+        _canvas?.Invalidate();
+    }
+}    
+
