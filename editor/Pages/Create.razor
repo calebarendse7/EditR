@@ -1,6 +1,7 @@
 @page "/Create"
 @using SkiaSharp.Views.Blazor
 @using SkiaSharp
+@using System.Text.RegularExpressions
 
 <PageTitle>Create</PageTitle>
 
@@ -15,7 +16,7 @@
         </li>
     </ul>
     <div id="binder">
-        <SKCanvasView tabindex="1" @ref="_canvas" @onclick="CanvasClick" @onkeydown="OnCanvasKeyDown" Width="1056" Height="816" OnPaintSurface="OnPaintSurface" />
+        <SKCanvasView tabindex="0" @ref="_canvas" @onclick="CanvasClick" @onkeydown="OnCanvasKeyDown" Width="408" Height="528" OnPaintSurface="OnPaintSurface" />
     </div>
 </div>
 
@@ -25,11 +26,13 @@
     private float _currentY {get; set;} = 0;
     private float _cursorX {get; set;} = 96f;
     private float _cursorY {get; set;} = 96f;
-    private float _pageWidth {get; set;} = 1056;
+    private float _pageWidth {get; set;} = 816f;
+    private float _pageHeight {get; set;} = 1056f;
     private float _fontSize {get; set;} = 22f;
     private float _rightMargin {get; set;} = 96f; 
     private float _leftMargin {get; set;} = 96f;
     private float _topMargin {get; set;} = 96f;
+    private float _bottomMargin {get; set;} = 95f;
     private string _letter {get; set;} = string.Empty;
 
     private void OnPaintSurface(SKPaintSurfaceEventArgs args)
@@ -42,7 +45,18 @@
             StrokeWidth = 2,
             IsAntialias= true,
         };
-        canvas.DrawLine(_cursorX, _cursorY, _cursorX, _cursorY + _fontSize, paint);
+        using var paintLine = new SKPaint {
+            Color = SKColors.Red,
+            StrokeWidth = 2,
+            IsAntialias= true,
+        };
+        
+        canvas.DrawLine(_pageWidth - _rightMargin, _topMargin, _pageWidth - _rightMargin, _pageHeight - _bottomMargin, paint);
+        canvas.DrawLine(_topMargin, _topMargin, _topMargin, _pageHeight - _bottomMargin, paint);
+        canvas.DrawLine(_topMargin, _topMargin, _pageWidth - _rightMargin, _topMargin, paint);
+        canvas.DrawLine(_leftMargin, _pageHeight - _bottomMargin, _pageWidth - _rightMargin, _pageHeight - _bottomMargin, paint);
+
+        canvas.DrawLine(_cursorX, _cursorY, _cursorX, _cursorY + _fontSize, paintLine);
     }
     private void CanvasClick(MouseEventArgs args)
     {
@@ -55,27 +69,27 @@
         
         switch (args.Code){
             case "Space": 
-                if(_cursorX + _fontSize < _pageWidth - _rightMargin){
-                    _cursorX += _fontSize;
-                }else {
-                    /* Move to next line */
+                _cursorX += _fontSize;
+                if(_cursorX > _pageWidth - _rightMargin){
                     _cursorX = _leftMargin;
                     _cursorY += _fontSize;
                 }
                 break;
             case "Backspace":
-                if(_cursorX - _fontSize >= _leftMargin){
-                    _cursorX -= _fontSize;
+                if(_cursorX == _leftMargin && _cursorY > _topMargin){
+                    _cursorX = _pageWidth - _rightMargin;
+                    _cursorY -= _fontSize;
                 }else {
-                    /* Move to previous line */
-                    if(_cursorY - _fontSize >= _topMargin){
-                        _cursorY -= _fontSize;
-                        _cursorX = _pageWidth - _rightMargin;
-                    }
+                    _cursorX = Math.Max(_cursorX - _fontSize, _leftMargin);
                 }
                 break;
-            default: 
-                Console.WriteLine(args.Code);
+            default:
+                var letterPattern = new Regex(@"^\S$");
+                if(letterPattern.IsMatch(args.Key)){
+                    Console.WriteLine("Letter or digit");
+                }else {
+                    Console.WriteLine("Not letter or digit");
+                }
                 break;
         }
         _canvas?.Invalidate();
