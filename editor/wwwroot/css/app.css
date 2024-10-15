@@ -1,8 +1,11 @@
+body {
+    overflow: hidden;
+}
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    overflow: hidden;
-    margin: 0;
-    padding: 0;
+    height: 100%;
+}
+#app, .page {
     height: 100%;
 }
 
@@ -105,3 +108,4 @@ a, .btn-link {
 code {
     color: #c02d76;
 }
+

@@ -1,5 +1,5 @@
-#binder {
+#document-interface {
     display: flex;
-    justify-content: center;
-    overflow-y: auto;
+    flex-direction: column;
+    height: 100%;
 }

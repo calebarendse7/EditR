@@ -6,22 +6,24 @@
 <PageTitle>Create</PageTitle>
 
 <div id="document-interface">
-    <h1>Doc Name</h1>
-    <ul class="nav nav-underline">
-        <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false">File</a>
-            <ul class="dropdown-menu">
-                <li><a class="dropdown-item">Save</a></li>
-            </ul>
-        </li>
-    </ul>
-    <div id="binder">
-        <SKCanvasView tabindex="0" @ref="_canvas" @onclick="CanvasClick" @onkeydown="OnCanvasKeyDown" Width="408" Height="528" OnPaintSurface="OnPaintSurface" />
+    <div>
+        <h1>Doc Name</h1>
+        <ul class="nav nav-underline">
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false">File</a>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item">Save</a></li>
+                </ul>
+            </li>
+        </ul>
     </div>
+    <SKCanvasView style="width: 100%; height: 100%; display: block;" id="document-canvas" IgnorePixelScaling="true" tabindex="0" @ref="_canvas" @onclick="CanvasClick" @onkeydown="OnCanvasKeyDown" @onwheel="OnCanvasWheel" OnPaintSurface="OnPaintSurface" />
 </div>
 
 @code {
-    private SKCanvasView? _canvas;
+    private SKCanvasView? _canvas;    
+    private SKImageInfo? _info;
+
     private float _currentX {get; set;} = 0; 
     private float _currentY {get; set;} = 0;
     private float _cursorX {get; set;} = 96f;
@@ -35,31 +37,39 @@
     private float _bottomMargin {get; set;} = 95f;
     private string _letter {get; set;} = string.Empty;
 
+    private float _pageStart {get; set;} = 50;
+
+    private float _transpt {get; set;} = 0;
     private void OnPaintSurface(SKPaintSurfaceEventArgs args)
     {
         var canvas = args.Surface.Canvas; 
+        _info = args.Info;
         canvas.Clear(SKColors.LightGray);
 
         using var paint = new SKPaint {
+            Style=SKPaintStyle.StrokeAndFill,
             Color = SKColors.Black,
             StrokeWidth = 2,
             IsAntialias= true,
         };
         using var paintLine = new SKPaint {
+            Style=SKPaintStyle.StrokeAndFill,
             Color = SKColors.Red,
-            StrokeWidth = 2,
+            StrokeWidth = 10,
             IsAntialias= true,
         };
         
-        canvas.DrawLine(_pageWidth - _rightMargin, _topMargin, _pageWidth - _rightMargin, _pageHeight - _bottomMargin, paint);
-        canvas.DrawLine(_topMargin, _topMargin, _topMargin, _pageHeight - _bottomMargin, paint);
-        canvas.DrawLine(_topMargin, _topMargin, _pageWidth - _rightMargin, _topMargin, paint);
-        canvas.DrawLine(_leftMargin, _pageHeight - _bottomMargin, _pageWidth - _rightMargin, _pageHeight - _bottomMargin, paint);
-
-        canvas.DrawLine(_cursorX, _cursorY, _cursorX, _cursorY + _fontSize, paintLine);
+        /* Draw document */
+        canvas.DrawRect(args.Info.Height - (_pageWidth / 2), _pageStart, _pageWidth, _pageHeight, paint);
+        //canvas.DrawLine(_pageWidth - _rightMargin, _topMargin, _pageWidth - _rightMargin, _pageHeight - _bottomMargin, paint);
+        //canvas.DrawLine(_topMargin, _topMargin, _topMargin, _pageHeight - _bottomMargin, paint);
+        //canvas.DrawLine(_topMargin, _topMargin, _pageWidth - _rightMargin, _topMargin, paint);
+        //canvas.DrawLine(_leftMargin, _pageHeight - _bottomMargin, _pageWidth - _rightMargin, _pageHeight - _bottomMargin, paint);
+        //canvas.DrawLine(_cursorX, _cursorY, _cursorX, _cursorY + _fontSize, paintLine);
     }
     private void CanvasClick(MouseEventArgs args)
     {
+        Console.WriteLine("Click");
         _currentX = (float) args.OffsetX;
         _currentY = (float) args.OffsetY;
     }
@@ -69,10 +79,12 @@
         
         switch (args.Code){
             case "Space": 
-                _cursorX += _fontSize;
-                if(_cursorX > _pageWidth - _rightMargin){
+                var endOfLine = _pageWidth - _rightMargin;
+                if(_cursorX == endOfLine && _cursorY < _pageHeight - _bottomMargin){
                     _cursorX = _leftMargin;
                     _cursorY += _fontSize;
+                }else {
+                    _cursorX = Math.Min(_cursorX + _fontSize, endOfLine);
                 }
                 break;
             case "Backspace":
@@ -91,6 +103,14 @@
                     Console.WriteLine("Not letter or digit");
                 }
                 break;
+        }
+        _canvas?.Invalidate();
+    }
+    private void OnCanvasWheel(WheelEventArgs eventArgs){
+        _pageStart -= (float) eventArgs.DeltaY;
+        
+        if(_pageStart + _pageHeight < _info?.Height - 50) {
+            _pageStart += (float) eventArgs.DeltaY;
         }
         _canvas?.Invalidate();
     }
