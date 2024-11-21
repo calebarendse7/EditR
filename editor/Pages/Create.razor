@@ -22,7 +22,7 @@
 
 @code {
     private SKCanvasView? _canvas;    
-    private SKImageInfo? _info;
+    private SKImageInfo _info;
 
     private float _currentX {get; set;} = 0; 
     private float _currentY {get; set;} = 0;
@@ -44,6 +44,7 @@
     {
         var canvas = args.Surface.Canvas; 
         _info = args.Info;
+
         canvas.Clear(SKColors.LightGray);
 
         using var paint = new SKPaint {
@@ -61,6 +62,8 @@
         
         /* Draw document */
         canvas.DrawRect(args.Info.Height - (_pageWidth / 2), _pageStart, _pageWidth, _pageHeight, paint);
+
+        //canvas.DrawLine(0, _pageStart + _pageHeight, args.Info.Width , _pageStart + _pageHeight, paint);
         //canvas.DrawLine(_pageWidth - _rightMargin, _topMargin, _pageWidth - _rightMargin, _pageHeight - _bottomMargin, paint);
         //canvas.DrawLine(_topMargin, _topMargin, _topMargin, _pageHeight - _bottomMargin, paint);
         //canvas.DrawLine(_topMargin, _topMargin, _pageWidth - _rightMargin, _topMargin, paint);
@@ -109,9 +112,17 @@
     private void OnCanvasWheel(WheelEventArgs eventArgs){
         _pageStart -= (float) eventArgs.DeltaY;
         
-        if(_pageStart + _pageHeight < _info?.Height - 50) {
-            _pageStart += (float) eventArgs.DeltaY;
+        /* Set limits on scroll */
+        var currentPageEnd = _pageStart + _pageHeight;
+        var topLimit = 50f;
+        var bottomLimit = _info.Height - topLimit;
+        
+        if(currentPageEnd < bottomLimit) {
+            _pageStart = bottomLimit - _pageHeight;
+        }else if(_pageStart > topLimit){
+            _pageStart = topLimit;
         }
+
         _canvas?.Invalidate();
     }
 }    
