@@ -8,6 +8,7 @@
 <div id="document-interface">
     <div>
         <h1>Doc Name</h1>
+        <p>Number of pages: @_numberOfPages</p>
         <ul class="nav nav-underline">
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false">File</a>
@@ -15,6 +16,7 @@
                     <li><a class="dropdown-item">Save</a></li>
                 </ul>
             </li>
+            <li class="nav-itme"><a class="nav-link" @onclick="AddPage">Add Page</a></li>
         </ul>
     </div>
     <SKCanvasView style="width: 100%; height: 100%; display: block;" id="document-canvas" IgnorePixelScaling="true" tabindex="0" @ref="_canvas" @onclick="CanvasClick" @onkeydown="OnCanvasKeyDown" @onwheel="OnCanvasWheel" OnPaintSurface="OnPaintSurface" />
@@ -24,6 +26,7 @@
     private SKCanvasView? _canvas;    
     private SKImageInfo _info;
 
+    private int _numberOfPages {get; set;} = 1;
     private float _currentX {get; set;} = 0; 
     private float _currentY {get; set;} = 0;
     private float _cursorX {get; set;} = 96f;
@@ -36,10 +39,7 @@
     private float _topMargin {get; set;} = 96f;
     private float _bottomMargin {get; set;} = 95f;
     private string _letter {get; set;} = string.Empty;
-
     private float _pageStart {get; set;} = 50;
-
-    private float _transpt {get; set;} = 0;
     private void OnPaintSurface(SKPaintSurfaceEventArgs args)
     {
         var canvas = args.Surface.Canvas; 
@@ -60,8 +60,11 @@
             IsAntialias= true,
         };
         
-        /* Draw document */
-        canvas.DrawRect(args.Info.Height - (_pageWidth / 2), _pageStart, _pageWidth, _pageHeight, paint);
+        /* Draw pages */
+        for(var i = 0; i < _numberOfPages; i++){
+            canvas.DrawRect(args.Info.Height - (_pageWidth / 2), _pageStart + (i * (_pageHeight + 50f)), _pageWidth, _pageHeight, paint);
+        }
+        
 
         //canvas.DrawLine(0, _pageStart + _pageHeight, args.Info.Width , _pageStart + _pageHeight, paint);
         //canvas.DrawLine(_pageWidth - _rightMargin, _topMargin, _pageWidth - _rightMargin, _pageHeight - _bottomMargin, paint);
@@ -113,16 +116,20 @@
         _pageStart -= (float) eventArgs.DeltaY;
         
         /* Set limits on scroll */
-        var currentPageEnd = _pageStart + _pageHeight;
+        var spaceBetweenPages = 50f;
+        var lastPageEnd = _pageStart + ((_numberOfPages-1) * (_pageHeight + spaceBetweenPages)) + _pageHeight;
         var topLimit = 50f;
         var bottomLimit = _info.Height - topLimit;
         
-        if(currentPageEnd < bottomLimit) {
-            _pageStart = bottomLimit - _pageHeight;
+        if(lastPageEnd < bottomLimit) {
+            _pageStart = bottomLimit - (_pageHeight * _numberOfPages + spaceBetweenPages * (_numberOfPages - 1));
         }else if(_pageStart > topLimit){
             _pageStart = topLimit;
         }
-
+        _canvas?.Invalidate();
+    }
+    private void AddPage(){
+        _numberOfPages++;
         _canvas?.Invalidate();
     }
 }    
