@@ -45,26 +45,33 @@
         var canvas = args.Surface.Canvas; 
         _info = args.Info;
 
-        canvas.Clear(SKColors.LightGray);
+        canvas.Clear(SKColors.White);
 
-        using var paint = new SKPaint {
-            Style=SKPaintStyle.StrokeAndFill,
+        using var pagePaint = new SKPaint {
+            Style=SKPaintStyle.Fill,
+            Color = SKColors.White,
+            IsAntialias= true,
+        };
+       
+        using var pageOutlinePaint = new SKPaint {
+            Style = SKPaintStyle.Stroke,
+            Color = SKColors.LightGray,
+            StrokeWidth = 1, 
+        };
+        using var cursorPaint = new SKPaint {
+            Style = SKPaintStyle.Fill,
             Color = SKColors.Black,
-            StrokeWidth = 2,
-            IsAntialias= true,
+            StrokeWidth = 1
         };
-        using var paintLine = new SKPaint {
-            Style=SKPaintStyle.StrokeAndFill,
-            Color = SKColors.Red,
-            StrokeWidth = 10,
-            IsAntialias= true,
-        };
-        
         /* Draw pages */
+        var x = args.Info.Height - _pageWidth / 2;
+        var pageMargin = _pageHeight + 50f;
         for(var i = 0; i < _numberOfPages; i++){
-            canvas.DrawRect(args.Info.Height - (_pageWidth / 2), _pageStart + (i * (_pageHeight + 50f)), _pageWidth, _pageHeight, paint);
+            var y = _pageStart + i * pageMargin;
+            canvas.DrawRect(x, y, _pageWidth, _pageHeight, pagePaint);
+            canvas.DrawRect(x, y, _pageWidth, _pageHeight, pageOutlinePaint);
         }
-        
+        //canvas.DrawLine(_cursorX, _cursorY, _cursorX, _cursorY + _fontSize, cursorPaint);
 
         //canvas.DrawLine(0, _pageStart + _pageHeight, args.Info.Width , _pageStart + _pageHeight, paint);
         //canvas.DrawLine(_pageWidth - _rightMargin, _topMargin, _pageWidth - _rightMargin, _pageHeight - _bottomMargin, paint);
@@ -75,7 +82,6 @@
     }
     private void CanvasClick(MouseEventArgs args)
     {
-        Console.WriteLine("Click");
         _currentX = (float) args.OffsetX;
         _currentY = (float) args.OffsetY;
     }
@@ -117,7 +123,7 @@
         
         /* Set limits on scroll */
         var spaceBetweenPages = 50f;
-        var lastPageEnd = _pageStart + ((_numberOfPages-1) * (_pageHeight + spaceBetweenPages)) + _pageHeight;
+        var lastPageEnd = _pageStart + ((_numberOfPages - 1) * (_pageHeight + spaceBetweenPages)) + _pageHeight;
         var topLimit = 50f;
         var bottomLimit = _info.Height - topLimit;
         
