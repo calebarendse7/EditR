@@ -1,6 +1,7 @@
 @page "/Create"
 @using SkiaSharp.Views.Blazor
 @using SkiaSharp
+@using editor.Models
 @using System.Text.RegularExpressions
 
 <PageTitle>Create</PageTitle>
@@ -8,7 +9,11 @@
 <div id="document-interface">
     <div>
         <h1>Doc Name</h1>
-        <p>Number of pages: @_numberOfPages</p>
+        <div style="display: flex; flex-direction: row;">
+            <p style="margin-right: 10px">Number of pages: @_document?.PageCount()</p>
+            <p>Font size: @_document?.FontSize()</p>
+        </div>
+       
         <ul class="nav nav-underline">
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false">File</a>
@@ -16,127 +21,57 @@
                     <li><a class="dropdown-item">Save</a></li>
                 </ul>
             </li>
-            <li class="nav-itme"><a class="nav-link" @onclick="AddPage">Add Page</a></li>
+            <li class="nav-item"><a class="nav-link" @onclick="AddPage">Add Page</a></li>
         </ul>
     </div>
-    <SKCanvasView style="width: 100%; height: 100%; display: block;" id="document-canvas" IgnorePixelScaling="true" tabindex="0" @ref="_canvas" @onclick="CanvasClick" @onkeydown="OnCanvasKeyDown" @onwheel="OnCanvasWheel" OnPaintSurface="OnPaintSurface" />
+    <SKCanvasView style="width: 100%; height: 100%; display: block;" id="document-canvas" IgnorePixelScaling="true" tabindex="0" @ref="_canvasView" @onclick="CanvasClick" @onkeydown="OnCanvasKeyDown" @onwheel="OnCanvasWheel" OnPaintSurface="OnPaintSurface" />
 </div>
 
 @code {
-    private SKCanvasView? _canvas;    
-    private SKImageInfo _info;
+    private Document? _document;
+    private SKCanvasView _canvasView;
 
-    private int _numberOfPages {get; set;} = 1;
-    private float _currentX {get; set;} = 0; 
-    private float _currentY {get; set;} = 0;
-    private float _cursorX {get; set;} = 96f;
-    private float _cursorY {get; set;} = 96f;
-    private float _pageWidth {get; set;} = 816f;
-    private float _pageHeight {get; set;} = 1056f;
-    private float _fontSize {get; set;} = 22f;
-    private float _rightMargin {get; set;} = 96f; 
-    private float _leftMargin {get; set;} = 96f;
-    private float _topMargin {get; set;} = 96f;
-    private float _bottomMargin {get; set;} = 95f;
-    private string _letter {get; set;} = string.Empty;
-    private float _pageStart {get; set;} = 50;
+    protected override void OnAfterRender(bool firstRender)
+    {
+        
+    }
     private void OnPaintSurface(SKPaintSurfaceEventArgs args)
     {
-        var canvas = args.Surface.Canvas; 
-        _info = args.Info;
-
-        canvas.Clear(SKColors.White);
-
-        using var pagePaint = new SKPaint {
-            Style=SKPaintStyle.Fill,
-            Color = SKColors.White,
-            IsAntialias= true,
-        };
-       
-        using var pageOutlinePaint = new SKPaint {
-            Style = SKPaintStyle.Stroke,
-            Color = SKColors.LightGray,
-            StrokeWidth = 1, 
-        };
-        using var cursorPaint = new SKPaint {
-            Style = SKPaintStyle.Fill,
-            Color = SKColors.Black,
-            StrokeWidth = 1
-        };
-        /* Draw pages */
-        var x = args.Info.Height - _pageWidth / 2;
-        var pageMargin = _pageHeight + 50f;
-        for(var i = 0; i < _numberOfPages; i++){
-            var y = _pageStart + i * pageMargin;
-            canvas.DrawRect(x, y, _pageWidth, _pageHeight, pagePaint);
-            canvas.DrawRect(x, y, _pageWidth, _pageHeight, pageOutlinePaint);
-        }
-        //canvas.DrawLine(_cursorX, _cursorY, _cursorX, _cursorY + _fontSize, cursorPaint);
-
-        //canvas.DrawLine(0, _pageStart + _pageHeight, args.Info.Width , _pageStart + _pageHeight, paint);
-        //canvas.DrawLine(_pageWidth - _rightMargin, _topMargin, _pageWidth - _rightMargin, _pageHeight - _bottomMargin, paint);
-        //canvas.DrawLine(_topMargin, _topMargin, _topMargin, _pageHeight - _bottomMargin, paint);
-        //canvas.DrawLine(_topMargin, _topMargin, _pageWidth - _rightMargin, _topMargin, paint);
-        //canvas.DrawLine(_leftMargin, _pageHeight - _bottomMargin, _pageWidth - _rightMargin, _pageHeight - _bottomMargin, paint);
-        //canvas.DrawLine(_cursorX, _cursorY, _cursorX, _cursorY + _fontSize, paintLine);
+        _document ??= new Document(_canvasView, args.Info.Height, 816, 1056, 50, 96, 96, 96, 96, 14);
+        _document.DrawPages(args.Surface.Canvas);
+        _document.DrawText(args.Surface.Canvas);
+        
     }
+    
     private void CanvasClick(MouseEventArgs args)
     {
-        _currentX = (float) args.OffsetX;
-        _currentY = (float) args.OffsetY;
+        /*_currentX = (float) args.OffsetX;
+        _currentY = (float) args.OffsetY;*/
     }
     private void OnCanvasKeyDown(KeyboardEventArgs args)
     {
-        _letter = args.Key; 
-        
         switch (args.Code){
             case "Space": 
-                var endOfLine = _pageWidth - _rightMargin;
-                if(_cursorX == endOfLine && _cursorY < _pageHeight - _bottomMargin){
-                    _cursorX = _leftMargin;
-                    _cursorY += _fontSize;
-                }else {
-                    _cursorX = Math.Min(_cursorX + _fontSize, endOfLine);
-                }
+                Console.WriteLine("Space");
+                break;
+            case "Enter":
+                Console.WriteLine("Enter");
                 break;
             case "Backspace":
-                if(_cursorX == _leftMargin && _cursorY > _topMargin){
-                    _cursorX = _pageWidth - _rightMargin;
-                    _cursorY -= _fontSize;
-                }else {
-                    _cursorX = Math.Max(_cursorX - _fontSize, _leftMargin);
-                }
+                Console.WriteLine("Backspace");
                 break;
             default:
-                var letterPattern = new Regex(@"^\S$");
-                if(letterPattern.IsMatch(args.Key)){
-                    Console.WriteLine("Letter or digit");
-                }else {
-                    Console.WriteLine("Not letter or digit");
+                if (args.Key.Length == 1)
+                {
+                    _document?.AddText(args.Key);
                 }
                 break;
+                
         }
-        _canvas?.Invalidate();
     }
-    private void OnCanvasWheel(WheelEventArgs eventArgs){
-        _pageStart -= (float) eventArgs.DeltaY;
-        
-        /* Set limits on scroll */
-        var spaceBetweenPages = 50f;
-        var lastPageEnd = _pageStart + ((_numberOfPages - 1) * (_pageHeight + spaceBetweenPages)) + _pageHeight;
-        var topLimit = 50f;
-        var bottomLimit = _info.Height - topLimit;
-        
-        if(lastPageEnd < bottomLimit) {
-            _pageStart = bottomLimit - (_pageHeight * _numberOfPages + spaceBetweenPages * (_numberOfPages - 1));
-        }else if(_pageStart > topLimit){
-            _pageStart = topLimit;
-        }
-        _canvas?.Invalidate();
-    }
-    private void AddPage(){
-        _numberOfPages++;
-        _canvas?.Invalidate();
-    }
-}    
 
+    private void OnCanvasWheel(WheelEventArgs eventArgs) => _document?.Scroll((float)eventArgs.DeltaY);
+    
+    private void AddPage() => _document?.AddPage();
+    
+}    
