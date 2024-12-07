@@ -34,7 +34,7 @@
     private List<int> FontSizes { get; } = [8, 9, 10, 11, 12];
     private Document? _document;
     private SKCanvasView? _canvasView;
-    
+
     protected override void OnInitialized()
     {
         Model ??= new DocumentInfo();
@@ -42,10 +42,10 @@
 
     private void OnPaintSurface(SKPaintSurfaceEventArgs args)
     {
-        _document ??= new Document(_canvasView, args.Info.Height, 816, 1056, 50, 96, 96, 96, 96, 14);
+        _document ??= new Document(_canvasView!, args.Info.Height, 816, 1056, 50, 96, 96, 96, 96, 11);
         _document.DrawPages(args.Surface.Canvas);
-        _document.DrawText(args.Surface.Canvas);
-        
+        _document.DrawCharacters(args.Surface.Canvas);
+        _document.DrawCursor(args.Surface.Canvas);
     }
 
     private void CanvasClick(MouseEventArgs args)
@@ -65,13 +65,14 @@
                 Console.WriteLine("Enter");
                 break;
             case "Backspace":
-                _document?.DeleteText();
+                _document?.DeleteChar();
                 break;
             default:
                 if (args.Key.Length == 1)
                 {
                     _document?.AddChar(args.Key[0]);
                 }
+
                 break;
         }
     }
@@ -88,8 +89,8 @@
 
     private void OnFormChange(ChangeEventArgs args)
     {
-        var v = float.Parse((string)args.Value);
+        if (args.Value is null) return;
         _document?.ChangeFontSize(float.Parse((string)args.Value));
     }
 
-}    
+}

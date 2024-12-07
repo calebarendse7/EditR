@@ -1,4 +1,3 @@
-using System.Security.Cryptography.X509Certificates;
 using SkiaSharp;
 using SkiaSharp.Views.Blazor;
 
@@ -6,81 +5,73 @@ namespace editor.Models;
 
 public class Document
 {
-    private readonly float _bMargin;
-    private readonly SKCanvasView _canvasView;
+    private const float PixelPointRatio = 96f / 72f;
     private readonly float _cBottom;
     private readonly float _cCenter;
-    private float _fontSize;
-    private float _largestFontSize;
+    private readonly Cursor _cursor;
+    private readonly SKCanvasView _cView;
+
     private readonly float _lineSpace;
-    private readonly float _pEnd;
+
+    private readonly (float Width, float Height, float LMargin, float RMargin, float TMargin, float BMargin) _page;
+    private readonly float _pBottomEnd;
     private readonly float _pGap;
-    private readonly float _pHeight;
-    private readonly float _pOffset;
-    private readonly float _pWidth;
-    private readonly float _tMargin;
-    private readonly float _curOffsetX;
-    private float _textWidth;
-    private float _curOffsetY;
-
-    private readonly float _curOriginX;
-    private float _curOriginY;
-    private float _drawStart;
-
-    private int _pages;
-
     private readonly int _pIndex;
+    private readonly List<StyledCharacter> _textList;
+
+    private float _drawStart;
+    private float _fontSize;
+    private float _lineHeight;
+
+    private int _pageCount;
     private float _pStart;
-    private readonly List<(char character, float size)> _textList;
 
     /// <summary>
-    ///     Creates a document with the specified dimensions.
+    /// Creates a document with the specified parameters.
     /// </summary>
-    /// <param name="canvasView">A reference to the canvas</param>
-    /// <param name="cHeight">The height of the canvas. </param>
-    /// <param name="pWidth">The width of each page. </param>
-    /// <param name="pHeight">The height of each page. </param>
-    /// <param name="pGap">The space between each page. </param>
+    /// <param name="cView">A reference to the canvas</param>
+    /// <param name="cHeight">The height of the canvas</param>
+    /// <param name="pWidth">The width of each page.</param>
+    /// <param name="pHeight">The height of each page.</param>
+    /// <param name="pGap">The space between each page</param>
     /// <param name="lMargin">The left margin of each page. </param>
     /// <param name="rMargin">The right margin of each page.</param>
     /// <param name="tMargin">The top margin of each page.</param>
     /// <param name="bMargin">The bottom margin of each page.</param>
     /// <param name="fontSize">The size for page text and the cursor.</param>
-    public Document(SKCanvasView canvasView, float cHeight, float pWidth, float pHeight, float pGap, float lMargin,
+    public Document(SKCanvasView cView, float cHeight, float pWidth, float pHeight, float pGap, float lMargin,
         float rMargin, float tMargin, float bMargin, float fontSize)
     {
-        _drawStart = 50;
-        _lineSpace = 1.15f;
-        _pStart = _drawStart + _pIndex * _pGap;
-
+        _cView = cView;
         _cCenter = cHeight - pWidth / 2;
         _cBottom = cHeight - tMargin;
-        _canvasView = canvasView;
 
-        _pGap = pHeight + pGap;
+        _page = (pWidth, pHeight, lMargin, rMargin, tMargin, bMargin);
+        _drawStart = pGap;
+        _pGap = pGap;
+        _lineSpace = 1.15f;
 
-        _pages = 1;
+        _pBottomEnd = pHeight + pGap;
+
+        _pStart = _drawStart + _pIndex * _pBottomEnd;
+        _pageCount = 1;
         _pIndex = 0;
-        _pOffset = 50;
 
-        _pWidth = pWidth;
-        _pHeight = pHeight;
-        _bMargin = bMargin;
+        var pEnd = _cCenter + pWidth - rMargin;
 
-        _tMargin = tMargin;
+        _fontSize = fontSize * PixelPointRatio;
+        _lineHeight = _fontSize * _lineSpace;
 
-        _curOriginX = _cCenter + lMargin;
-        _curOriginY = _pStart + tMargin;
-        _curOffsetX = 0;
-        _curOffsetY = 0;
-
-        _pEnd = _cCenter + pWidth - rMargin;
-        _fontSize = fontSize;
-        _largestFontSize = 0f;
         _textList = [];
-        _textWidth = 0;
+
+        _cursor = new Cursor((_cCenter + lMargin, _pStart + tMargin),
+            (pEnd, _drawStart + pHeight - bMargin));
     }
 
+    /// <summary>
+    /// Draws the pages of the document.
+    /// </summary>
+    /// <param name="canvas">The canvas where the pages are drawn.</param>
     public void DrawPages(SKCanvas canvas)
     {
         canvas.Clear(SKColors.White);
@@ -94,110 +85,116 @@ public class Document
         pageOutlinePaint.Color = SKColors.LightGray;
         pageOutlinePaint.StrokeWidth = 1;
 
-        for (var i = 0; i < _pages; i++)
+        for (var i = 0; i < _pageCount; i++)
         {
-            var y = _drawStart + i * _pGap;
-            canvas.DrawRect(_cCenter, y, _pWidth, _pHeight, pagePaint);
-            canvas.DrawRect(_cCenter, y, _pWidth, _pHeight, pageOutlinePaint);
+            var y = _drawStart + i * _pBottomEnd;
+            canvas.DrawRect(_cCenter, y, _page.Width, _page.Height, pagePaint);
+            canvas.DrawRect(_cCenter, y, _page.Width, _page.Height, pageOutlinePaint);
         }
     }
-
+    /// <summary>
+    /// Draws the cursor.
+    /// </summary>
+    /// <param name="canvas">The canvas where the cursor is drawn.</param>
     public void DrawCursor(SKCanvas canvas)
     {
-        _curOriginY = _pStart + _tMargin;
-
         using var cursorPaint = new SKPaint();
         cursorPaint.Style = SKPaintStyle.Fill;
         cursorPaint.Color = SKColors.Black;
         cursorPaint.StrokeWidth = 1;
 
-        var x = _curOriginX + _curOffsetX;
-        canvas.DrawLine(x, _curOriginY, x, _curOriginY + _fontSize, cursorPaint);
+        canvas.DrawLine(_cursor.position.X, _cursor.position.Y + _cursor.Offset() - _fontSize, _cursor.position.X,
+            _cursor.position.Y + _lineHeight - _fontSize + _cursor.Offset(), cursorPaint);
     }
-
+    /// <summary>
+    /// Scrolls the pages of the document. 
+    /// </summary>
+    /// <param name="deltaY">The amount to scroll.</param>
     public void Scroll(float deltaY)
     {
         _drawStart -= deltaY;
 
         /* Set limits on scroll */
-        if (_drawStart + (_pages - 1) * (_pHeight + _pOffset) + _pHeight < _cBottom)
-            _drawStart = _cBottom - (_pHeight * _pages + _pOffset * (_pages - 1));
-        else if (_drawStart > _tMargin) _drawStart = _tMargin;
+        if (_drawStart + (_pageCount - 1) * _pBottomEnd + _page.Height < _cBottom)
+            _drawStart = _cBottom - (_page.Height * _pageCount + _pGap * (_pageCount - 1));
+        else if (_drawStart > _page.TMargin) _drawStart = _page.TMargin;
 
-        _pStart = _drawStart + _pIndex * _pGap;
-
-        _canvasView.Invalidate();
+        _pStart = _drawStart + _pIndex * _pBottomEnd;
+        _cursor.SetCursorOffset(_pStart);
+        _cView.Invalidate();
     }
-
+    /// <summary>
+    /// Adds a page to the document.
+    /// </summary>
     public void AddPage()
     {
-        _pages++;
-        _canvasView.Invalidate();
+        _pageCount++;
+        _cView.Invalidate();
     }
-
-    public void AddChar(char text)
+    /// <summary>
+    /// Adds a character to the document.
+    /// </summary>
+    /// <param name="character">The new character.</param>
+    public void AddChar(char character)
     {
-        _textList.Add((text, _fontSize));
-        if(_fontSize > _largestFontSize) _largestFontSize = _fontSize;
-        _canvasView.Invalidate();
-    }
+        using var textPaint = new SKPaint();
+        textPaint.TextSize = _fontSize;
+        textPaint.Typeface = SKTypeface.FromFamilyName("Ariel");
 
-    public void DeleteText()
+        var width = textPaint.MeasureText(char.ToString(character));
+
+        var c =
+            new StyledCharacter(character, _fontSize, width, _cursor.ValidatePosition((width, _lineHeight)));
+        _cursor.MoveCursor(c.Position, width);
+        _textList.Add(c);
+        _cView.Invalidate();
+    }
+    /// <summary>
+    /// Deletes a character from the document.
+    /// </summary>
+    public void DeleteChar()
     {
         if (_textList.Count <= 0) return;
         _textList.RemoveAt(_textList.Count - 1);
-        _canvasView.Invalidate();
-    }
-    public void DrawText(SKCanvas canvas)
-    {
-        _curOriginY = _pStart + _tMargin;
+        if (_textList.Count >= 1)
+        {
+            var prev = _textList[^1];
+            _cursor.MoveCursor(prev.Position, prev.FontWidth);
+        }
+        else
+        {
+            _cursor.MoveCursorOrigin();
+        }
 
+        _cView.Invalidate();
+    }
+    /// <summary>
+    /// Draws the document's characters to the canvas.
+    /// </summary>
+    /// <param name="canvas">The canvas where the characters are drawn.</param>
+    public void DrawCharacters(SKCanvas canvas)
+    {
         using var textPaint = new SKPaint();
         textPaint.Color = SKColors.Black;
         textPaint.IsAntialias = true;
-        textPaint.StrokeWidth = 11;
         textPaint.Typeface = SKTypeface.FromFamilyName("Ariel");
 
-        if (_textList.Count <= 0) return;
+        if (_textList.Count < 1) return;
 
-        (int x, int y) lineOffset = (0, 0);
-        var yOffset = _largestFontSize * _lineSpace;
-
-        var offset = 0f;
-        foreach (var text in _textList)
+        foreach (var (value, fontSize, width, position) in _textList)
         {
-            textPaint.TextSize = text.size;
-
-            var xPos = _curOriginX + offset;
-            var yPos = _curOriginY + yOffset * lineOffset.y;
-
-            if (xPos > _pEnd)
-            {
-                lineOffset = (1, lineOffset.y + 1);
-                xPos = _curOriginX;
-                offset = 0;
-                yPos += yOffset;
-            }
-            
-            offset += textPaint.MeasureText(char.ToString(text.character));
-            canvas.DrawText(char.ToString(text.character), xPos, yPos, textPaint);
+            textPaint.TextSize = fontSize;
+            canvas.DrawText(char.ToString(value), position.X, position.Y + _cursor.Offset(), textPaint);
         }
-        
     }
-
-    public int PageCount()
-    {
-        return _pages;
-    }
-    
-    public float FontSize()
-    {
-        return _fontSize;
-    }
-
+    /// <summary>
+    /// Changes the font size of the document.
+    /// </summary>
+    /// <param name="fontSize">The new font size.</param>
     public void ChangeFontSize(float fontSize)
     {
-        _fontSize = fontSize * (96f / 72f);
+        var fontSizePixels = fontSize * PixelPointRatio;
+        if (fontSizePixels > _fontSize) _lineHeight = fontSizePixels * _lineSpace;
+        _fontSize = fontSizePixels;
     }
-    
 }
