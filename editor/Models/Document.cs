@@ -16,7 +16,6 @@ public class Document
     private readonly (float Width, float Height, float LMargin, float RMargin, float TMargin, float BMargin) _page;
     private readonly float _pBottomEnd;
     private readonly float _pGap;
-    private readonly int _pIndex;
     private readonly List<StyledCharacter> _textList;
 
     private float _drawStart;
@@ -24,17 +23,16 @@ public class Document
     private float _lineHeight;
 
     private int _pageCount;
-    private float _pStart;
 
     /// <summary>
-    /// Creates a document with the specified parameters.
+    ///     Creates a document with the specified parameters.
     /// </summary>
     /// <param name="cView">A reference to the canvas</param>
     /// <param name="cHeight">The height of the canvas</param>
     /// <param name="pWidth">The width of each page.</param>
     /// <param name="pHeight">The height of each page.</param>
-    /// <param name="pGap">The space between each page</param>
-    /// <param name="lMargin">The left margin of each page. </param>
+    /// <param name="pGap">The space between each page.</param>
+    /// <param name="lMargin">The left margin of each page.</param>
     /// <param name="rMargin">The right margin of each page.</param>
     /// <param name="tMargin">The top margin of each page.</param>
     /// <param name="bMargin">The bottom margin of each page.</param>
@@ -53,9 +51,7 @@ public class Document
 
         _pBottomEnd = pHeight + pGap;
 
-        _pStart = _drawStart + _pIndex * _pBottomEnd;
         _pageCount = 1;
-        _pIndex = 0;
 
         var pEnd = _cCenter + pWidth - rMargin;
 
@@ -63,13 +59,12 @@ public class Document
         _lineHeight = _fontSize * _lineSpace;
 
         _textList = [];
-
-        _cursor = new Cursor((_cCenter + lMargin, _pStart + tMargin),
+        _cursor = new Cursor((_cCenter + lMargin, _drawStart + tMargin),
             (pEnd, _drawStart + pHeight - bMargin));
     }
 
     /// <summary>
-    /// Draws the pages of the document.
+    ///     Draws the pages of the document.
     /// </summary>
     /// <param name="canvas">The canvas where the pages are drawn.</param>
     public void DrawPages(SKCanvas canvas)
@@ -92,8 +87,9 @@ public class Document
             canvas.DrawRect(_cCenter, y, _page.Width, _page.Height, pageOutlinePaint);
         }
     }
+
     /// <summary>
-    /// Draws the cursor.
+    ///     Draws the cursor.
     /// </summary>
     /// <param name="canvas">The canvas where the cursor is drawn.</param>
     public void DrawCursor(SKCanvas canvas)
@@ -101,13 +97,18 @@ public class Document
         using var cursorPaint = new SKPaint();
         cursorPaint.Style = SKPaintStyle.Fill;
         cursorPaint.Color = SKColors.Black;
-        cursorPaint.StrokeWidth = 1;
+        cursorPaint.StrokeWidth = 1.5f;
 
-        canvas.DrawLine(_cursor.position.X, _cursor.position.Y + _cursor.Offset() - _fontSize, _cursor.position.X,
-            _cursor.position.Y + _lineHeight - _fontSize + _cursor.Offset(), cursorPaint);
+        var y = _drawStart + _page.TMargin - _fontSize;
+        y += _textList.Count > 0
+            ? _textList[^1].Position.PNum * _pBottomEnd + _textList[^1].Position.LineNum * _lineHeight
+            : _lineHeight;
+
+        canvas.DrawLine(_cursor.Position, y, _cursor.Position, y + _fontSize * _lineSpace, cursorPaint);
     }
+
     /// <summary>
-    /// Scrolls the pages of the document. 
+    ///     Scrolls the pages of the document.
     /// </summary>
     /// <param name="deltaY">The amount to scroll.</param>
     public void Scroll(float deltaY)
@@ -119,20 +120,20 @@ public class Document
             _drawStart = _cBottom - (_page.Height * _pageCount + _pGap * (_pageCount - 1));
         else if (_drawStart > _page.TMargin) _drawStart = _page.TMargin;
 
-        _pStart = _drawStart + _pIndex * _pBottomEnd;
-        _cursor.SetCursorOffset(_pStart);
         _cView.Invalidate();
     }
+
     /// <summary>
-    /// Adds a page to the document.
+    ///     Adds a page to the document.
     /// </summary>
     public void AddPage()
     {
         _pageCount++;
         _cView.Invalidate();
     }
+
     /// <summary>
-    /// Adds a character to the document.
+    ///     Adds a character to the document.
     /// </summary>
     /// <param name="character">The new character.</param>
     public void AddChar(char character)
@@ -143,14 +144,16 @@ public class Document
 
         var width = textPaint.MeasureText(char.ToString(character));
 
-        var c =
-            new StyledCharacter(character, _fontSize, width, _cursor.ValidatePosition((width, _lineHeight)));
-        _cursor.MoveCursor(c.Position, width);
+        var c = new StyledCharacter
+            (character, _fontSize, width, _cursor.ValidatePosition((width, _lineHeight)));
+        if (c.Position.PNum > _pageCount - 1) _pageCount++;
+        _cursor.MoveCursor(c.Position, c.FontWidth);
         _textList.Add(c);
         _cView.Invalidate();
     }
+
     /// <summary>
-    /// Deletes a character from the document.
+    ///     Deletes a character from the document.
     /// </summary>
     public void DeleteChar()
     {
@@ -159,6 +162,7 @@ public class Document
         if (_textList.Count >= 1)
         {
             var prev = _textList[^1];
+            if (prev.Position.PNum < _pageCount - 1) _pageCount--;
             _cursor.MoveCursor(prev.Position, prev.FontWidth);
         }
         else
@@ -168,8 +172,9 @@ public class Document
 
         _cView.Invalidate();
     }
+
     /// <summary>
-    /// Draws the document's characters to the canvas.
+    ///     Draws the document's characters to the canvas.
     /// </summary>
     /// <param name="canvas">The canvas where the characters are drawn.</param>
     public void DrawCharacters(SKCanvas canvas)
@@ -181,14 +186,35 @@ public class Document
 
         if (_textList.Count < 1) return;
 
+        (float Top, float Offset) yPos = (_drawStart + _page.TMargin, _lineHeight);
+        (int Page, int Line) current = (0, 1);
+
         foreach (var (value, fontSize, width, position) in _textList)
         {
             textPaint.TextSize = fontSize;
-            canvas.DrawText(char.ToString(value), position.X, position.Y + _cursor.Offset(), textPaint);
+            if (position.PNum > current.Page)
+            {
+                yPos.Top += _pBottomEnd;
+                current.Page++;
+            }
+
+            if (position.LineNum > current.Line)
+            {
+                yPos.Offset += _lineHeight;
+                current.Line++;
+            }
+            else if (position.LineNum < current.Line)
+            {
+                yPos.Offset = _lineHeight;
+                current.Line = 1;
+            }
+
+            canvas.DrawText(char.ToString(value), position.X, yPos.Top + yPos.Offset, textPaint);
         }
     }
+
     /// <summary>
-    /// Changes the font size of the document.
+    ///     Changes the font size of the document.
     /// </summary>
     /// <param name="fontSize">The new font size.</param>
     public void ChangeFontSize(float fontSize)
@@ -196,5 +222,6 @@ public class Document
         var fontSizePixels = fontSize * PixelPointRatio;
         if (fontSizePixels > _fontSize) _lineHeight = fontSizePixels * _lineSpace;
         _fontSize = fontSizePixels;
+        _cView.Invalidate();
     }
 }
