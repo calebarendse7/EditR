@@ -100,10 +100,8 @@ public class Document
         cursorPaint.StrokeWidth = 1.5f;
 
         var y = _drawStart + _page.TMargin - _fontSize;
-        y += _textList.Count > 0
-            ? _textList[^1].Position.PNum * _pBottomEnd + _textList[^1].Position.LineNum * _lineHeight
-            : _lineHeight;
-
+       
+        y += _cursor.PageNumber * _pBottomEnd + _cursor.LineNumber * _lineHeight;
         canvas.DrawLine(_cursor.Position, y, _cursor.Position, y + _fontSize * _lineSpace, cursorPaint);
     }
 
@@ -141,14 +139,24 @@ public class Document
         using var textPaint = new SKPaint();
         textPaint.TextSize = _fontSize;
         textPaint.Typeface = SKTypeface.FromFamilyName("Ariel");
-
         var width = textPaint.MeasureText(char.ToString(character));
-
-        var c = new StyledCharacter
-            (character, _fontSize, width, _cursor.ValidatePosition((width, _lineHeight)));
-        if (c.Position.PNum > _pageCount - 1) _pageCount++;
-        _cursor.MoveCursor(c.Position, c.FontWidth);
-        _textList.Add(c);
+        
+        if (character == '\n')
+        {
+            var c = new StyledCharacter
+                (character, _fontSize, 0, _cursor.ValidatePosition((0, _lineHeight)), SKColors.Empty);
+            _cursor.Move(c.Position, 0);
+            _textList.Add(c);
+        }
+        else
+        {
+            var c = new StyledCharacter
+                (character, _fontSize, width, _cursor.ValidatePosition((width, _lineHeight)), SKColors.Black);
+            _cursor.Move(c.Position, c.FontWidth);
+            _textList.Add(c);
+        }
+       
+        if (_cursor.PageNumber > _pageCount - 1) _pageCount++;
         _cView.Invalidate();
     }
 
@@ -163,14 +171,14 @@ public class Document
         {
             var prev = _textList[^1];
             if (prev.Position.PNum < _pageCount - 1) _pageCount--;
-            _cursor.MoveCursor(prev.Position, prev.FontWidth);
+            _cursor.Move(prev.Position, prev.FontWidth);
         }
         else
         {
-            _cursor.MoveCursorOrigin();
+            _cursor.MoveOrigin();
         }
-
         _cView.Invalidate();
+
     }
 
     /// <summary>
@@ -180,36 +188,28 @@ public class Document
     public void DrawCharacters(SKCanvas canvas)
     {
         using var textPaint = new SKPaint();
-        textPaint.Color = SKColors.Black;
+       
+
         textPaint.IsAntialias = true;
         textPaint.Typeface = SKTypeface.FromFamilyName("Ariel");
 
         if (_textList.Count < 1) return;
 
-        (float Top, float Offset) yPos = (_drawStart + _page.TMargin, _lineHeight);
-        (int Page, int Line) current = (0, 1);
+        var top = _drawStart + _page.TMargin;
+        var page = 0;
 
-        foreach (var (value, fontSize, width, position) in _textList)
+        foreach (var (value, fontSize, width, position, color) in _textList)
         {
             textPaint.TextSize = fontSize;
-            if (position.PNum > current.Page)
+            textPaint.Color = color;
+            
+            if (position.PNum > page)
             {
-                yPos.Top += _pBottomEnd;
-                current.Page++;
+                top += _pBottomEnd;
+                page++;
             }
-
-            if (position.LineNum > current.Line)
-            {
-                yPos.Offset += _lineHeight;
-                current.Line++;
-            }
-            else if (position.LineNum < current.Line)
-            {
-                yPos.Offset = _lineHeight;
-                current.Line = 1;
-            }
-
-            canvas.DrawText(char.ToString(value), position.X, yPos.Top + yPos.Offset, textPaint);
+            
+            canvas.DrawText(char.ToString(value), position.X, top + _lineHeight * position.LineNum, textPaint);
         }
     }
 

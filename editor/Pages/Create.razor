@@ -62,7 +62,7 @@
                 _document?.AddChar(' ');
                 break;
             case "Enter":
-                Console.WriteLine("Enter");
+                _document?.AddChar('\n');
                 break;
             case "Backspace":
                 _document?.DeleteChar();
@@ -72,7 +72,6 @@
                 {
                     _document?.AddChar(args.Key[0]);
                 }
-
                 break;
         }
     }
