@@ -1,19 +1,19 @@
 namespace editor.Models;
 
-public class Cursor((float X, float Y) origin, (float X, float Y) boundary)
+public class Cursor((float X, float Y) origin, float lineEnd)
 {
     /// <summary>
     ///     Gets the current cursor page number;
     /// </summary>
-    /// <returns>An int representing the cursor cursor page number.</returns>
-    public int PageNumber { get; private set; }
+    /// <returns>An int representing the cursor page number.</returns>
+    public int PageNumber { get; private set; } = 1;
 
     /// <summary>
     ///     Gets the cursor X position.
     /// </summary>
     /// <returns>A float representing the cursor X position.</returns>
     public float Position { get; private set; } = origin.X;
-    
+
     /// <summary>
     ///     Gets the cursor line number.
     /// </summary>
@@ -36,18 +36,21 @@ public class Cursor((float X, float Y) origin, (float X, float Y) boundary)
     ///     Checks if the position given is within the cursor boundaries.
     /// </summary>
     /// <param name="pos">The position to validate.</param>
-    /// <returns>A Tuple representing a valid cursor position</returns>
-    public (float, int, int) ValidatePosition((float Width, float LineHeight) pos)
+    /// <param name="linePosition">The current line y value.</param>
+    /// <param name="pageEnd">The end position of the last page.</param>
+    /// <returns>A Tuple representing a valid cursor position.</returns>
+    public (float, int, int) ValidatePosition((float Width, float LineHeight) pos, float linePosition, float pageEnd)
     {
         (float X, int LineNum, int PNum) valid = (Position + pos.Width, LineNumber, PageNumber);
 
-        if (valid.X > boundary.X || pos.Width == 0)
+        if (valid.X > lineEnd || pos.Width == 0)
         {
             valid.X = origin.X;
             valid.LineNum++;
-            if (!(origin.Y + valid.LineNum * pos.LineHeight > boundary.Y)) return valid;
+
+            if (!(origin.Y + linePosition + pos.LineHeight > pageEnd)) return valid;
             valid.PNum++;
-            valid.LineNum = 1;
+            valid.LineNum++;
         }
         else
         {
@@ -65,5 +68,4 @@ public class Cursor((float X, float Y) origin, (float X, float Y) boundary)
         Position = origin.X;
         LineNumber = 1;
     }
-    
 }
