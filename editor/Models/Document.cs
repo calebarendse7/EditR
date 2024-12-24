@@ -5,12 +5,16 @@ namespace editor.Models;
 
 public class Document
 {
-    private const float PixelPointRatio = 96f / 72f;
+    private const float PixelPointRatio = 96f / 72;
+    private const float TabWidth = 0.5f * 96;
     private readonly float _cBottom;
     private readonly float _cCenter;
+    private readonly List<StyledCharacter> _charList;
     private readonly Cursor _cursor;
     private readonly SKCanvasView _cView;
-    private readonly Dictionary<int, (float size, float lineHeight, float padding)> _lineMetrics;
+
+    private readonly Dictionary<int, SortedDictionary<float, CharMetric>>
+        _lineMetrics;
 
     private readonly float _lineSpace;
 
@@ -18,7 +22,6 @@ public class Document
     private readonly float _pageEnd;
     private readonly float _pBottomEnd;
     private readonly float _pGap;
-    private readonly List<StyledCharacter> _textList;
 
     private float _drawStart;
     private float _fontSize;
@@ -39,8 +42,9 @@ public class Document
     /// <param name="tMargin">The top margin of each page.</param>
     /// <param name="bMargin">The bottom margin of each page.</param>
     /// <param name="fontSize">The size for page text and the cursor.</param>
+    /// <param name="lineSpace">The line space for lines on each page.</param>
     public Document(SKCanvasView cView, float cHeight, float pWidth, float pHeight, float pGap, float lMargin,
-        float rMargin, float tMargin, float bMargin, float fontSize)
+        float rMargin, float tMargin, float bMargin, float fontSize, float lineSpace)
     {
         _cView = cView;
         _cCenter = cHeight - pWidth / 2;
@@ -49,7 +53,7 @@ public class Document
         _page = (pWidth, pHeight, lMargin, rMargin, tMargin, bMargin);
         _drawStart = pGap;
         _pGap = pGap;
-        _lineSpace = 1.15f;
+        _lineSpace = lineSpace;
 
         _pBottomEnd = pHeight + pGap;
 
@@ -57,11 +61,12 @@ public class Document
 
         _fontSize = fontSize * PixelPointRatio;
 
-        _textList = [];
+        _charList = [];
         _cursor = new Cursor((_cCenter + lMargin, _drawStart + tMargin),
             _cCenter + pWidth - rMargin);
         _pageEnd = pHeight - bMargin;
-        _lineMetrics = new Dictionary<int, (float size, float height, float padding)>();
+        _lineMetrics = [];
+
         _typeface = SKTypeface.Default;
     }
 
@@ -101,7 +106,7 @@ public class Document
         cursorPaint.Color = SKColors.Black;
         cursorPaint.StrokeWidth = 1.5f;
 
-        if (_textList.Count == 0)
+        if (_charList.Count == 0)
             _lastDrawY = _drawStart + _page.TMargin +
                          TextUtil.LineHeight(new SKFont(_typeface, _fontSize).Metrics) * _lineSpace;
 
@@ -133,11 +138,15 @@ public class Document
         using var textPaint = new SKPaint();
         textPaint.TextSize = _fontSize;
         textPaint.Typeface = _typeface;
-        
+
         var color = SKColors.Empty;
         float width = 0;
 
-        if (character != '\n')
+        if (character == '\t')
+        {
+            width = TabWidth;
+        }
+        else if (character != '\n')
         {
             color = SKColors.Black;
             width = textPaint.MeasureText(char.ToString(character));
@@ -153,18 +162,24 @@ public class Document
             color);
 
         var key = c.Position.LineNum;
-        if (_lineMetrics.TryGetValue(key, out var font))
+
+        if (!_lineMetrics.TryGetValue(key, out var info))
         {
-            if (c.FontSize > font.size)
-                _lineMetrics[key] = (c.FontSize, height, padding);
+            _lineMetrics.Add(key,
+                new SortedDictionary<float, CharMetric>(
+                    Comparer<float>.Create((x, y) => y.CompareTo(x))));
+            _lineMetrics[key].Add(c.FontSize, new CharMetric(height, padding));
         }
         else
         {
-            _lineMetrics.Add(key, (c.FontSize, height, padding));
+            if (!info.TryGetValue(c.FontSize, out var old))
+                info.Add(c.FontSize, new CharMetric(height, padding));
+            else
+                info[c.FontSize].Quantity++;
         }
 
         _cursor.Move(c.Position, c.FontWidth);
-        _textList.Add(c);
+        _charList.Add(c);
 
         if (_cursor.PageNumber > _pageCount) _pageCount++;
 
@@ -176,14 +191,27 @@ public class Document
     /// </summary>
     public void DeleteChar()
     {
-        if (_textList.Count <= 0) return;
-        _textList.RemoveAt(_textList.Count - 1);
-        if (_textList.Count >= 1)
+        if (_charList.Count <= 0) return;
+        var removedChar = _charList[^1];
+        _charList.RemoveAt(_charList.Count - 1);
+
+        var lineInfo = _lineMetrics[_cursor.LineNumber];
+        var charInfo = lineInfo[removedChar.FontSize];
+        if (charInfo.Quantity == 1)
         {
-            var prev = _textList[^1];
+            _lineMetrics[_cursor.LineNumber].Remove(removedChar.FontSize);
+            if (lineInfo.Count != 0) _fontSize = lineInfo.First().Key;
+        }
+        else
+        {
+            charInfo.Quantity--;
+        }
+
+        if (_charList.Count >= 1)
+        {
+            var prev = _charList[^1];
             if (prev.Position.PNum < _pageCount) _pageCount--;
             if (prev.Position.LineNum < _cursor.LineNumber) _lineMetrics.Remove(_cursor.LineNumber);
-
             _cursor.Move(prev.Position, prev.FontWidth);
         }
         else
@@ -204,7 +232,7 @@ public class Document
         using var textPaint = new SKPaint();
         textPaint.IsAntialias = true;
         textPaint.Typeface = _typeface;
-        if (_textList.Count < 1) return;
+        if (_charList.Count < 1) return;
 
         var lineStart = _drawStart + _page.TMargin;
         var page = 1;
@@ -212,7 +240,7 @@ public class Document
         var lastSize = 0f;
         var currentY = lineStart;
 
-        foreach (var (value, fontSize, _, (x, lineNum, pNum), color) in _textList)
+        foreach (var (value, fontSize, _, (x, lineNum, pNum), color) in _charList)
         {
             textPaint.TextSize = fontSize;
             textPaint.Color = color;
@@ -225,11 +253,10 @@ public class Document
 
             if (lineNum != drawPosition)
             {
-                var (size, tLineHeight, _) = _lineMetrics[lineNum];
-
-                if (lastSize > size) tLineHeight += _lineMetrics[drawPosition].padding;
-
-                currentY += tLineHeight * _lineSpace;
+                var (size, charMetrics) = _lineMetrics[lineNum].First();
+                var height = charMetrics.LineHeight;
+                if (lastSize > size) height += _lineMetrics[drawPosition].First().Value.Padding;
+                currentY += height * _lineSpace;
                 lastSize = size;
                 drawPosition = lineNum;
             }

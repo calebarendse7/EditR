@@ -51,7 +51,7 @@
 
     private void OnPaintSurface(SKPaintSurfaceEventArgs args)
     {
-        _document ??= new Document(_canvasView!, args.Info.Height, 816, 1056, 10, 96, 96, 96, 96, 11);
+        _document ??= new Document(_canvasView!, args.Info.Height, 816, 1056, 10, 96, 96, 96, 96, 11, 1.15f);
         if (_typeface is not null)
         {
             _document.SetTypeface(_typeface);
@@ -80,6 +80,9 @@
                 break;
             case "Backspace":
                 _document?.DeleteChar();
+                break;
+            case "Tab":
+                _document?.AddChar('\t');
                 break;
             default:
                 if (args.Key.Length == 1)
