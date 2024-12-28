@@ -9,24 +9,19 @@ public class Document
     private const float TabWidth = 0.5f * 96;
     private readonly float _cBottom;
     private readonly float _cCenter;
-    private readonly List<StyledCharacter> _charList;
     private readonly Cursor _cursor;
     private readonly SKCanvasView _cView;
-
-    private readonly Dictionary<int, SortedDictionary<float, CharMetric>>
-        _lineMetrics;
 
     private readonly float _lineSpace;
 
     private readonly (float Width, float Height, float LMargin, float RMargin, float TMargin, float BMargin) _page;
-    private readonly float _pageEnd;
     private readonly float _pBottomEnd;
     private readonly float _pGap;
+    private readonly TextBank _textBank;
 
     private float _drawStart;
     private float _fontSize;
     private float _lastDrawY;
-    private int _pageCount;
     private SKTypeface _typeface;
 
     /// <summary>
@@ -57,17 +52,14 @@ public class Document
 
         _pBottomEnd = pHeight + pGap;
 
-        _pageCount = 1;
-
         _fontSize = fontSize * PixelPointRatio;
 
-        _charList = [];
         _cursor = new Cursor((_cCenter + lMargin, _drawStart + tMargin),
             _cCenter + pWidth - rMargin);
-        _pageEnd = pHeight - bMargin;
-        _lineMetrics = [];
-
         _typeface = SKTypeface.Default;
+        _textBank = new TextBank((_cCenter + lMargin, _cCenter + pWidth - rMargin),
+            (_page.TMargin, pHeight - bMargin, _pBottomEnd));
+        _textBank.SetOffset(_drawStart);
     }
 
     /// <summary>
@@ -87,7 +79,7 @@ public class Document
         pageOutlinePaint.Color = SKColors.LightGray;
         pageOutlinePaint.StrokeWidth = 1;
 
-        for (var i = 0; i < _pageCount; i++)
+        for (var i = 0; i < _textBank.PageCount; i++)
         {
             var y = _drawStart + i * _pBottomEnd;
             canvas.DrawRect(_cCenter, y, _page.Width, _page.Height, pagePaint);
@@ -106,7 +98,7 @@ public class Document
         cursorPaint.Color = SKColors.Black;
         cursorPaint.StrokeWidth = 1.5f;
 
-        if (_charList.Count == 0)
+        if (_textBank.CharCount == 0)
             _lastDrawY = _drawStart + _page.TMargin +
                          TextUtil.LineHeight(new SKFont(_typeface, _fontSize).Metrics) * _lineSpace;
 
@@ -122,10 +114,11 @@ public class Document
         _drawStart -= deltaY;
 
         /* Set limits on scroll */
-        if (_drawStart + (_pageCount - 1) * _pBottomEnd + _page.Height < _cBottom)
-            _drawStart = _cBottom - (_page.Height * _pageCount + _pGap * (_pageCount - 1));
+        if (_drawStart + (_textBank.PageCount - 1) * _pBottomEnd + _page.Height < _cBottom)
+            _drawStart = _cBottom - (_page.Height * _textBank.PageCount + _pGap * (_textBank.PageCount - 1));
         else if (_drawStart > _page.TMargin) _drawStart = _page.TMargin;
 
+        _textBank.SetOffset(_drawStart);
         _cView.Invalidate();
     }
 
@@ -152,36 +145,8 @@ public class Document
             width = textPaint.MeasureText(char.ToString(character));
         }
 
-        var padding = textPaint.FontMetrics.Descent + textPaint.FontMetrics.Leading;
-        var height = TextUtil.LineHeight(textPaint.FontMetrics);
-
-        var c = new StyledCharacter
-        (character, _fontSize, width,
-            _cursor.ValidatePosition((width, height), _lastDrawY,
-                _drawStart + _pBottomEnd * (_pageCount - 1) + _pageEnd),
-            color);
-
-        var key = c.Position.LineNum;
-
-        if (!_lineMetrics.TryGetValue(key, out var info))
-        {
-            _lineMetrics.Add(key,
-                new SortedDictionary<float, CharMetric>(
-                    Comparer<float>.Create((x, y) => y.CompareTo(x))));
-            _lineMetrics[key].Add(c.FontSize, new CharMetric(height, padding));
-        }
-        else
-        {
-            if (!info.TryGetValue(c.FontSize, out var old))
-                info.Add(c.FontSize, new CharMetric(height, padding));
-            else
-                info[c.FontSize].Quantity++;
-        }
-
-        _cursor.Move(c.Position, c.FontWidth);
-        _charList.Add(c);
-
-        if (_cursor.PageNumber > _pageCount) _pageCount++;
+        _textBank.AddCharacter(character, width, TextUtil.LineHeight(textPaint.FontMetrics), _fontSize,
+            textPaint.FontMetrics.Descent + textPaint.FontMetrics.Leading, color);
 
         _cView.Invalidate();
     }
@@ -191,34 +156,8 @@ public class Document
     /// </summary>
     public void DeleteChar()
     {
-        if (_charList.Count <= 0) return;
-        var removedChar = _charList[^1];
-        _charList.RemoveAt(_charList.Count - 1);
-
-        var lineInfo = _lineMetrics[_cursor.LineNumber];
-        var charInfo = lineInfo[removedChar.FontSize];
-        if (charInfo.Quantity == 1)
-        {
-            _lineMetrics[_cursor.LineNumber].Remove(removedChar.FontSize);
-            if (lineInfo.Count != 0) _fontSize = lineInfo.First().Key;
-        }
-        else
-        {
-            charInfo.Quantity--;
-        }
-
-        if (_charList.Count >= 1)
-        {
-            var prev = _charList[^1];
-            if (prev.Position.PNum < _pageCount) _pageCount--;
-            if (prev.Position.LineNum < _cursor.LineNumber) _lineMetrics.Remove(_cursor.LineNumber);
-            _cursor.Move(prev.Position, prev.FontWidth);
-        }
-        else
-        {
-            _lineMetrics.Remove(_cursor.LineNumber);
-            _cursor.MoveOrigin();
-        }
+        if (_textBank.CharCount == 0) return;
+        _textBank.RemoveCharacter();
 
         _cView.Invalidate();
     }
@@ -232,39 +171,21 @@ public class Document
         using var textPaint = new SKPaint();
         textPaint.IsAntialias = true;
         textPaint.Typeface = _typeface;
-        if (_charList.Count < 1) return;
 
-        var lineStart = _drawStart + _page.TMargin;
-        var page = 1;
-        var drawPosition = 0;
-        var lastSize = 0f;
-        var currentY = lineStart;
-
-        foreach (var (value, fontSize, _, (x, lineNum, pNum), color) in _charList)
+        var line = 0;
+        float y = 0;
+        foreach (var (value, (_, _, size), (x, _, lNum), color) in _textBank)
         {
-            textPaint.TextSize = fontSize;
+            textPaint.TextSize = size;
             textPaint.Color = color;
-
-            if (pNum > page)
+            if (lNum > line)
             {
-                currentY = lineStart + _pBottomEnd * page;
-                page++;
+                y = _textBank.LineStart(lNum);
+                line++;
             }
 
-            if (lineNum != drawPosition)
-            {
-                var (size, charMetrics) = _lineMetrics[lineNum].First();
-                var height = charMetrics.LineHeight;
-                if (lastSize > size) height += _lineMetrics[drawPosition].First().Value.Padding;
-                currentY += height * _lineSpace;
-                lastSize = size;
-                drawPosition = lineNum;
-            }
-
-            canvas.DrawText(char.ToString(value), x, currentY, textPaint);
+            canvas.DrawText(char.ToString(value), x, y, textPaint);
         }
-
-        _lastDrawY = currentY;
     }
 
     /// <summary>

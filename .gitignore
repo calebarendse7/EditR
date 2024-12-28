@@ -2,3 +2,4 @@
 /editor/bin
 .idea/
 /editor/wwwroot/fonts
+editor/Models/Temp.cs

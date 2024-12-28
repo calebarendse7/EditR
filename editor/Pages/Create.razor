@@ -84,7 +84,14 @@
             case "Tab":
                 _document?.AddChar('\t');
                 break;
+            case "ArrowRight":
+                //_document?.PanRight();
+                break;
+            case "ArrowLeft":
+                //_document?.PanLeft();
+                break;
             default:
+
                 if (args.Key.Length == 1)
                 {
                     _document?.AddChar(args.Key[0]);

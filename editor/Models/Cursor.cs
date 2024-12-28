@@ -14,6 +14,8 @@ public class Cursor((float X, float Y) origin, float lineEnd)
     /// <returns>A float representing the cursor X position.</returns>
     public float Position { get; private set; } = origin.X;
 
+    public int CharPosition { get; set; }
+
     /// <summary>
     ///     Gets the cursor line number.
     /// </summary>
@@ -67,5 +69,6 @@ public class Cursor((float X, float Y) origin, float lineEnd)
     {
         Position = origin.X;
         LineNumber = 1;
+        CharPosition = 0;
     }
 }
