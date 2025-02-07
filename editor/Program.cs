@@ -1,4 +1,4 @@
-using editor;
+using Editor;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 
