@@ -153,9 +153,10 @@ public class Document
     /// </summary>
     public void DeleteChar()
     {
-        // if (_textBank.CharCount == 0) return;
-        // _textBank.RemoveCharacter();
-        // if (OperatingSystem.IsBrowser()) _cView.Invalidate();
+        if (_textBank.TextCount == 0) return;
+        _charStart--;
+        _textBank.RemoveCharacter(_charStart);
+        if (OperatingSystem.IsBrowser()) _cView.Invalidate();
     }
 
     /// <summary>
@@ -172,7 +173,7 @@ public class Document
         {
             textFont.Size = character.Size;
             paint.Color = character.Color;
-            canvas.DrawText(character.Value.ToString(), character.Column, character.ScrollOffset + character.RowOffset, textFont, paint);
+            canvas.DrawText(character.Value.ToString(), character.Column, character.Row, textFont, paint);
         }
     }
 

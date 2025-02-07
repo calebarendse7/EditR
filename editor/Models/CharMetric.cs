@@ -10,6 +10,11 @@ public class CharMetric(float lineHeight, float padding)
     public float LineHeight { get; } = lineHeight;
     public float Padding { get; } = padding;
 
+    /// <summary>
+    ///     Represents the quantity of the character.
+    /// </summary>
+    public int Quantity { get; private set; } = 1;
+
     public void Deconstruct(out float height, out float padding, out int quantity)
     {
         height = LineHeight;
@@ -21,13 +26,9 @@ public class CharMetric(float lineHeight, float padding)
     {
         Quantity++;
     }
+
     public void DecQuantity()
     {
         Quantity--;
     }
-
-    /// <summary>
-    ///     Represents the quantity of the character.
-    /// </summary>
-    public int Quantity { get; private set; } = 1;
 }
