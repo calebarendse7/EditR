@@ -51,7 +51,7 @@
 
     private void OnPaintSurface(SKPaintSurfaceEventArgs args)
     {
-        _document ??= new Document(_canvasView!, args.Info.Height, 816, 1056, 10, 96, 96, 96, 96, 11, 1.15f);
+        _document ??= new Document(args.Info.Height, 816, 1056, 10, 96, 96, 96, 96, 11, 1.15f);
         if (_typeface is not null)
         {
             _document.SetTypeface(_typeface);
@@ -74,27 +74,35 @@
         {
             case "Space":
                 _document?.AddChar(' ');
+                _canvasView?.Invalidate();
                 break;
             case "Enter":
                 _document?.AddChar('\n');
+                _canvasView?.Invalidate();
                 break;
             case "Backspace":
                 _document?.DeleteChar();
+                _canvasView?.Invalidate();
                 break;
             case "Tab":
                 _document?.AddChar('\t');
+                _canvasView?.Invalidate();
                 break;
             case "ArrowRight":
                 _document?.PanRight();
+                _canvasView?.Invalidate();
                 break;
             case "ArrowLeft":
                 _document?.PanLeft();
+                _canvasView?.Invalidate();
                 break;
             default:
                 if (args.Key.Length == 1)
                 {
                     _document?.AddChar(args.Key[0]);
+                    _canvasView?.Invalidate();
                 }
+
                 break;
         }
     }
@@ -102,6 +110,7 @@
     private void OnCanvasWheel(WheelEventArgs eventArgs)
     {
         _document?.Scroll((float)eventArgs.DeltaY);
+        _canvasView?.Invalidate();
     }
 
     private void OnFormChange(ChangeEventArgs args)

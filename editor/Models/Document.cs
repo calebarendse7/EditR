@@ -1,5 +1,4 @@
 using SkiaSharp;
-using SkiaSharp.Views.Blazor;
 
 namespace editor.Models;
 
@@ -9,14 +8,12 @@ public class Document
     private const float TabWidth = 0.5f * 96;
     private readonly float _cBottom;
     private readonly float _cCenter;
-    private readonly Cursor _cursor;
-    private readonly SKCanvasView _cView;
     private readonly float _lineSpace;
     private readonly (float Width, float Height, float LMargin, float RMargin, float TMargin, float BMargin) _page;
     private readonly float _pBottomEnd;
     private readonly float _pGap;
     private readonly TextBank _textBank;
-    private int _charStart;
+    private int _cursorPos;
     private float _drawStart;
     private float _fontSize;
     private SKTypeface _typeface;
@@ -24,7 +21,6 @@ public class Document
     /// <summary>
     ///     Creates a document with the specified parameters.
     /// </summary>
-    /// <param name="cView">A reference to the canvas</param>
     /// <param name="cHeight">The height of the canvas</param>
     /// <param name="pWidth">The width of each page.</param>
     /// <param name="pHeight">The height of each page.</param>
@@ -35,10 +31,9 @@ public class Document
     /// <param name="bMargin">The bottom margin of each page.</param>
     /// <param name="fontSize">The size for page text and the cursor.</param>
     /// <param name="lineSpace">The line space for lines on each page.</param>
-    public Document(SKCanvasView cView, float cHeight, float pWidth, float pHeight, float pGap, float lMargin,
+    public Document(float cHeight, float pWidth, float pHeight, float pGap, float lMargin,
         float rMargin, float tMargin, float bMargin, float fontSize, float lineSpace)
     {
-        _cView = cView;
         _cCenter = cHeight - pWidth / 2;
         _cBottom = cHeight - tMargin;
 
@@ -51,8 +46,6 @@ public class Document
 
         _fontSize = fontSize * PixelPointRatio;
 
-        _cursor = new Cursor((_cCenter + lMargin, _drawStart + tMargin),
-            _cCenter + pWidth - rMargin);
         _typeface = SKTypeface.Default;
         _textBank = new TextBank((_cCenter + lMargin, _cCenter + pWidth - rMargin),
             (_page.TMargin, pHeight - bMargin, _pBottomEnd), _drawStart);
@@ -75,7 +68,6 @@ public class Document
         pageOutlinePaint.Color = SKColors.LightGray;
         pageOutlinePaint.StrokeWidth = 1;
 
-        // i < _textBank.PageCount
         for (var i = 0; i < _textBank.PageNum + 1; i++)
         {
             var y = _drawStart + i * _pBottomEnd;
@@ -95,11 +87,25 @@ public class Document
         cursorPaint.Color = SKColors.Black;
         cursorPaint.StrokeWidth = 1.5f;
 
-
-        var y = _drawStart + _page.TMargin +
+        float x;
+        float y;
+        var size = _fontSize;
+        if (_textBank.TextCount > 0 && _cursorPos - 1 >= 0)
+        {
+            var c = _textBank[_cursorPos - 1];
+            Console.WriteLine($"Drawing cursor before {c.Value} on row {c.RowNum}({c.Row}) with {_textBank.TextCount}");
+            x = c.Column + c.Width;
+            y = c.Row;
+            size = c.Size;
+        }
+        else
+        {
+            x = _cCenter + _page.LMargin;
+            y = _drawStart + _page.TMargin +
                 TextUtil.LineHeight(new SKFont(_typeface, _fontSize).Metrics) * _lineSpace;
+        }
 
-        canvas.DrawLine(_cursor.Position, y - _fontSize, _cursor.Position, y, cursorPaint);
+        canvas.DrawLine(x, y - size, x, y, cursorPaint);
     }
 
     /// <summary>
@@ -116,7 +122,6 @@ public class Document
         else if (_drawStart > _page.TMargin) _drawStart = _page.TMargin;
 
         _textBank.SetOffset(_drawStart);
-        if (OperatingSystem.IsBrowser()) _cView.Invalidate();
     }
 
     /// <summary>
@@ -142,10 +147,8 @@ public class Document
             width = textPaint.MeasureText(char.ToString(character));
         }
 
-        _textBank.AddCharacter(character, _charStart, width, TextUtil.LineHeight(textPaint.Metrics), _fontSize,
+        _textBank.Add(character, _cursorPos++, width, TextUtil.LineHeight(textPaint.Metrics), _fontSize,
             textPaint.Metrics.Descent + textPaint.Metrics.Leading, color);
-        _charStart++;
-        if (OperatingSystem.IsBrowser()) _cView.Invalidate();
     }
 
     /// <summary>
@@ -153,10 +156,8 @@ public class Document
     /// </summary>
     public void DeleteChar()
     {
-        if (_textBank.TextCount == 0) return;
-        _charStart--;
-        _textBank.RemoveCharacter(_charStart);
-        if (OperatingSystem.IsBrowser()) _cView.Invalidate();
+        if (_textBank.TextCount == 0 || _cursorPos - 1 < 0) return;
+        _textBank.Remove(--_cursorPos);
     }
 
     /// <summary>
@@ -184,7 +185,6 @@ public class Document
     public void ChangeFontSize(float fontSize)
     {
         _fontSize = fontSize * PixelPointRatio;
-        if (OperatingSystem.IsBrowser()) _cView.Invalidate();
     }
 
     /// <summary>
@@ -196,13 +196,19 @@ public class Document
         _typeface = typeface;
     }
 
+    /// <summary>
+    ///     Decrements the position of the document cursor.
+    /// </summary>
     public void PanLeft()
     {
-        if (_charStart > 0) _charStart--;
+        if (_cursorPos > 0) _cursorPos--;
     }
 
+    /// <summary>
+    ///     Increments the position of the document cursor.
+    /// </summary>
     public void PanRight()
     {
-        if (_charStart < _textBank.TextCount) _charStart++;
+        if (_cursorPos < _textBank.TextCount) _cursorPos++;
     }
 }

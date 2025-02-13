@@ -180,7 +180,7 @@ public class RbList<T> : IEnumerable<T>
             Node<T>(_, var l, var d, _) when index == ChildCount(l) => d,
             Node<T>(_, var l, _, _) when index < ChildCount(l) => Get(l, index),
             Node<T>(_, var l, _, var r) => Get(r, index - ChildCount(l) - 1),
-            _ => throw new IndexOutOfRangeException()
+            _ => throw new IndexOutOfRangeException($"Index {index} out of range of RBList")
         };
     }
 }

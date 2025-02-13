@@ -11,8 +11,9 @@ public class StyledChar
     public float Size { get; init; }
     public SKColor Color { get; init; }
     public float Column { get; set; }
-    public int RowNum { get; set; }
+    public int RowNum { get; set; } = -1;
     public float Row { get; set; }
+
 
     public void Deconstruct(out char value, out float width, out float height, out float padding, out float size,
         out SKColor color)
@@ -27,6 +28,7 @@ public class StyledChar
 
     public override string ToString()
     {
-        return $"Value: {Value}, Column: {Column}, Row: {RowNum}";
+        var p = Value == '\n' ? "\\n" : Value.ToString();
+        return $"Value: {p}, Column: {Column}, Row: {RowNum}, Position {Row}";
     }
 }
