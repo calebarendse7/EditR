@@ -15,7 +15,8 @@ public class Document
     private readonly TextBank _textBank;
     private int _cursorPos;
     private float _drawStart;
-    private float _fontSize;
+    private int _ptSize;
+    private float _pxSize;
     private SKTypeface _typeface;
 
     /// <summary>
@@ -32,7 +33,7 @@ public class Document
     /// <param name="fontSize">The size for page text and the cursor.</param>
     /// <param name="lineSpace">The line space for lines on each page.</param>
     public Document(float cHeight, float pWidth, float pHeight, float pGap, float lMargin,
-        float rMargin, float tMargin, float bMargin, float fontSize, float lineSpace)
+        float rMargin, float tMargin, float bMargin, int fontSize, float lineSpace)
     {
         _cCenter = cHeight - pWidth / 2;
         _cBottom = cHeight - tMargin;
@@ -44,7 +45,8 @@ public class Document
 
         _pBottomEnd = pHeight + pGap;
 
-        _fontSize = fontSize * PixelPointRatio;
+        _pxSize = fontSize * PixelPointRatio;
+        _ptSize = fontSize;
 
         _typeface = SKTypeface.Default;
         _textBank = new TextBank((_cCenter + lMargin, _cCenter + pWidth - rMargin),
@@ -89,11 +91,10 @@ public class Document
 
         float x;
         float y;
-        var size = _fontSize;
+        var size = _pxSize;
         if (_textBank.TextCount > 0 && _cursorPos - 1 >= 0)
         {
             var c = _textBank[_cursorPos - 1];
-            Console.WriteLine($"Drawing cursor before {c.Value} on row {c.RowNum}({c.Row}) with {_textBank.TextCount}");
             x = c.Column + c.Width;
             y = c.Row;
             size = c.Size;
@@ -102,7 +103,7 @@ public class Document
         {
             x = _cCenter + _page.LMargin;
             y = _drawStart + _page.TMargin +
-                TextUtil.LineHeight(new SKFont(_typeface, _fontSize).Metrics) * _lineSpace;
+                TextUtil.LineHeight(new SKFont(_typeface, _pxSize).Metrics) * _lineSpace;
         }
 
         canvas.DrawLine(x, y - size, x, y, cursorPaint);
@@ -131,7 +132,7 @@ public class Document
     public void AddChar(char character)
     {
         using var textPaint = new SKFont();
-        textPaint.Size = _fontSize;
+        textPaint.Size = _pxSize;
         textPaint.Typeface = _typeface;
 
         var color = SKColors.Empty;
@@ -147,8 +148,8 @@ public class Document
             width = textPaint.MeasureText(char.ToString(character));
         }
 
-        _textBank.Add(character, _cursorPos++, width, TextUtil.LineHeight(textPaint.Metrics), _fontSize,
-            textPaint.Metrics.Descent + textPaint.Metrics.Leading, color);
+        _textBank.Add(character, _cursorPos++, width, TextUtil.LineHeight(textPaint.Metrics), _pxSize,
+            textPaint.Metrics.Descent + textPaint.Metrics.Leading, _ptSize, color);
     }
 
     /// <summary>
@@ -182,9 +183,10 @@ public class Document
     ///     Changes the font size of the document.
     /// </summary>
     /// <param name="fontSize">The new font size.</param>
-    public void ChangeFontSize(float fontSize)
+    public void ChangeFontSize(int fontSize)
     {
-        _fontSize = fontSize * PixelPointRatio;
+        _pxSize = fontSize * PixelPointRatio;
+        _ptSize = fontSize;
     }
 
     /// <summary>

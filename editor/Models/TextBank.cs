@@ -13,8 +13,8 @@ public class TextBank((float Start, float End) x, (float Start, float End, float
     : IEnumerable<StyledChar>
 {
     private readonly RbList<StyledChar> _charList = [];
+    private readonly Dictionary<int, SortedDictionary<int, CharMetric>> _fontsByRow = [];
     private readonly Dictionary<int, float> _heightByRow = [];
-    private readonly Dictionary<int, SortedDictionary<float, CharMetric>> _fontsByRow = [];
     private float _pEnd = y.End + scrollOffset;
 
     private float _pStart = y.Start + scrollOffset;
@@ -37,9 +37,7 @@ public class TextBank((float Start, float End) x, (float Start, float End, float
             if (cRow != item.RowNum)
             {
                 if (!_heightByRow.TryGetValue(++cRow, out var rowHeight))
-                {
-                    Console.WriteLine($"Height of {cRow} not found");
-                }
+                    Console.WriteLine($"Row height not found {cRow}");
                 rStart += rowHeight;
                 if (rStart > rEnd)
                 {
@@ -75,13 +73,13 @@ public class TextBank((float Start, float End) x, (float Start, float End, float
     /// <param name="size">A float representing the font size of the character.</param>
     /// <param name="padding">A float representing the font padding of the character.</param>
     /// <param name="color">A float representing the font color of the character.</param>
-    public void Add(char value, int charPosition, float width, float height, float size, float padding,
+    public void Add(char value, int charPosition, float width, float height, float size, float padding, int ptSize,
         SKColor color)
     {
-        _charList.Insert(charPosition, new StyledChar
-            { Value = value, Width = width, Height = height, Padding = padding, Size = size, Color = color });
+        _charList.Insert(charPosition, new StyledChar(value, width, height, padding, size, ptSize, color));
         TextUtil.UpdateFrom(_charList, _fontsByRow, _heightByRow, x, charPosition);
     }
+
     /// <summary>
     ///     Removes the last added character from the text bank.
     /// </summary>
@@ -89,9 +87,10 @@ public class TextBank((float Start, float End) x, (float Start, float End, float
     {
         var toRemove = _charList[charIndex];
         _charList.RemoveAt(charIndex);
-        TextUtil.ReduceQuantity(_fontsByRow, toRemove.RowNum, toRemove.Size);
-        TextUtil.UpdateFrom(_charList, _fontsByRow, _heightByRow, x, charIndex);
+        TextUtil.ReduceQuantity(_fontsByRow, toRemove.RowNum, toRemove.PtSize);
+        if (_charList.Count > 0) TextUtil.UpdateFrom(_charList, _fontsByRow, _heightByRow, x, charIndex - 1);
     }
+
     /// <summary>
     ///     Changes the text bank offset.
     /// </summary>
@@ -101,6 +100,4 @@ public class TextBank((float Start, float End) x, (float Start, float End, float
         _pStart = y.Start + offset;
         _pEnd = y.End + offset;
     }
-
-    
 }
