@@ -116,7 +116,7 @@
     private void OnFormChange(ChangeEventArgs args)
     {
         if (args.Value is null) return;
-        _document?.ChangeFontSize(float.Parse((string)args.Value));
+        _document?.ChangeFontSize(int.Parse((string)args.Value));
     }
 
 }

@@ -2,14 +2,16 @@ using SkiaSharp;
 
 namespace editor.Models;
 
-public class StyledChar
+public class StyledChar(char value, float width, float height, float padding, float size, int ptSize, SKColor color)
 {
-    public char Value { get; init; }
-    public float Width { get; init; }
-    public float Height { get; init; }
-    public float Padding { get; init; }
-    public float Size { get; init; }
-    public SKColor Color { get; init; }
+    public char Value { get; } = value;
+    public float Width { get; } = width;
+    public float Height { get; } = height;
+    public float Padding { get; } = padding;
+    public float Size { get; } = size;
+    public SKColor Color { get; } = color;
+
+    public int PtSize { get; } = ptSize;
     public float Column { get; set; }
     public int RowNum { get; set; } = -1;
     public float Row { get; set; }
