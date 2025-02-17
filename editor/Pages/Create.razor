@@ -62,10 +62,10 @@
         _document.DrawCursor(args.Surface.Canvas);
     }
 
-    private void CanvasClick(MouseEventArgs args)
+    private static void CanvasClick(MouseEventArgs args)
     {
-        /*_currentX = (float) args.OffsetX;
-        _currentY = (float) args.OffsetY;*/
+        Console.WriteLine(args.OffsetX);
+        Console.WriteLine(args.OffsetY);
     }
 
     private void OnCanvasKeyDown(KeyboardEventArgs args)

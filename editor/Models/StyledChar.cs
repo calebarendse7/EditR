@@ -31,6 +31,6 @@ public class StyledChar(char value, float width, float height, float padding, fl
     public override string ToString()
     {
         var p = Value == '\n' ? "\\n" : Value.ToString();
-        return $"Value: {p}, Column: {Column}, Row: {RowNum}, Position {Row}";
+        return $"(Value: {p}, Column: {Column}, Row: {RowNum}, Position {Row})";
     }
 }

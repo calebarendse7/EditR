@@ -92,12 +92,27 @@ public class Document
         float x;
         float y;
         var size = _pxSize;
-        if (_textBank.TextCount > 0 && _cursorPos - 1 >= 0)
+        var pos = _cursorPos - 1;
+        if (_textBank.TextCount > 0 && pos >= 0)
         {
-            var c = _textBank[_cursorPos - 1];
+            var c = _textBank[pos];
             x = c.Column + c.Width;
             y = c.Row;
             size = c.Size;
+            if (c.Value == '\n')
+            {
+                x = _cCenter + _page.LMargin;
+                if (_cursorPos < _textBank.TextCount)
+                {
+                    var next = _textBank[_cursorPos];
+                    y = next.Row;
+                    size = next.Size;
+                }
+                else
+                {
+                    y += TextUtil.LineHeight(new SKFont(_typeface, _pxSize).Metrics) * _lineSpace;
+                }
+            }
         }
         else
         {
