@@ -94,6 +94,7 @@ public static class TextUtil
     ///     row.
     /// </param>
     /// <param name="heightByRow">A dictionary representing the heights for each row.</param>
+    /// <param name="x">A tuple of floats representing the start and end positions of the document in the x direction.</param>
     /// <param name="index">An int representing the index of the first character to recalculate from.</param>
     public static void UpdateFrom(RbList<StyledChar> charList,
         Dictionary<int, SortedDictionary<int, CharMetric>> fontsByRow, Dictionary<int, float> heightByRow,
@@ -101,22 +102,25 @@ public static class TextUtil
     {
         var column = x.Start;
         var rowNumber = 0;
+        var isNextLine = false;
         if (index > 0)
         {
             var r = charList[index - 1];
             rowNumber = r.RowNum;
             column = r.Column + r.Width;
+            isNextLine = r.Value == '\n';
         }
 
         for (var i = index; i < charList.Count; i++)
         {
             var c = charList[i];
-            if (column + c.Width > x.End || c.Value == '\n')
+            if (column + c.Width > x.End || isNextLine)
             {
                 column = x.Start;
-                if (c.Value == '\n' && i == 0) heightByRow[rowNumber] = c.Height * 1.15f;
                 rowNumber++;
             }
+
+            isNextLine = c.Value == '\n';
 
             var storedRow = c.RowNum;
             c.Column = column;
