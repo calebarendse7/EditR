@@ -100,4 +100,31 @@ public class TextBank((float Start, float End) x, (float Start, float End, float
         _pStart = y.Start + offset;
         _pEnd = y.End + offset;
     }
+
+    public void EachPage(Action<StyledChar, int> action)
+    {
+        var cRow = -1;
+        var pNum = 0;
+        var rStart = _pStart;
+        var rEnd = _pEnd;
+        foreach (var item in _charList)
+        {
+            if (cRow != item.RowNum)
+            {
+                if (!_heightByRow.TryGetValue(++cRow, out var rowHeight))
+                    Console.WriteLine($"Row height not found {cRow}");
+                rStart += rowHeight;
+                if (rStart > rEnd)
+                {
+                    pNum++;
+                    var pStart = y.THeight * pNum;
+                    rEnd += pStart;
+                    rStart = _pStart + pStart + rowHeight;
+                }
+            }
+
+            item.Row = rStart;
+            action(item, pNum);
+        }
+    }
 }

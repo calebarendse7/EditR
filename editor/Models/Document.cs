@@ -228,4 +228,39 @@ public class Document
     {
         if (_cursorPos < _textBank.TextCount) _cursorPos++;
     }
+
+    public MemoryStream GeneratePdf()
+    {
+        if (_textBank.TextCount == 0) throw new Exception("No pages available");
+        var md = new SKDocumentPdfMetadata
+        {
+            Title = "Test"
+        };
+        
+        
+        var ms = new MemoryStream();
+        
+        var page = 0;
+        using var doc = SKDocument.CreatePdf(ms, md);
+        var p = doc.BeginPage(816, 1056);
+        using var textFont = new SKFont();
+        using var paint = new SKPaint();
+        textFont.Typeface = _typeface;
+        _textBank.EachPage((ch,pNum) => 
+        {
+            Console.WriteLine($"{ch.Value} is on page {pNum}");
+            textFont.Size = ch.Size;
+            paint.Color = ch.Color;
+            if (page != pNum)
+            {
+                doc.EndPage();
+                p = doc.BeginPage(816, 1056);
+                page++;
+            }
+            p.DrawText(ch.Value.ToString(), ch.Column - _cCenter, ch.Row, textFont, paint);
+        });
+        doc.Close();
+
+        return ms;
+    }
 }

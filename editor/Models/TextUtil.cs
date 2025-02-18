@@ -119,9 +119,6 @@ public static class TextUtil
                 column = x.Start;
                 rowNumber++;
             }
-
-            isNextLine = c.Value == '\n';
-
             var storedRow = c.RowNum;
             c.Column = column;
             c.RowNum = rowNumber;
@@ -139,6 +136,7 @@ public static class TextUtil
 
             UpdateHeight(fontsByRow, heightByRow, c.RowNum, 1.15f);
             column += c.Width;
+            isNextLine = c.Value == '\n';
         }
     }
 }
