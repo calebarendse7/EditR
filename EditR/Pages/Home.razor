@@ -1,0 +1,96 @@
+﻿@page "/"
+@using EditR.Models
+@using SkiaSharp
+@using SkiaSharp.Views.Blazor
+@inject HttpClient Client;
+<PageTitle>Home</PageTitle>
+
+<div id="document-interface">
+    <EditMenu Model="_model"/>
+    <SKCanvasView IgnorePixelScaling="true" tabindex="0" @ref="_canvasView"
+                  @onclick="OnCanvasClick" @onkeydown="OnCanvasKeyDown"
+                  @onwheel="OnCanvasWheel" OnPaintSurface="OnPaintSurface"/>
+</div>
+
+@code {
+    private readonly DocumentInfo _model = new();
+    private Document? _document;
+    private SKCanvasView? _canvasView;
+    private SKTypeface? _typeface;
+
+    protected override void OnInitialized()
+    {
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var stream = await Client.GetStreamAsync($"fonts/Arial.ttf");
+        _typeface = SKTypeface.FromStream(stream);
+    }
+
+    private void OnPaintSurface(SKPaintSurfaceEventArgs args)
+    {
+        _document ??= new Document((args.Info.Width, args.Info.Height), 816, 1056, 50, 96, 96, 96, 96, 1.15f);
+        if (_typeface is not null)
+        {
+            _document.SetTypeface(_typeface);
+        }
+
+        _document.DrawPages(args.Surface.Canvas);
+        _document.DrawCharacters(args.Surface.Canvas);
+        _document.DrawCursor(args.Surface.Canvas, _model.PixelSize);
+    }
+
+    private static void OnCanvasClick(MouseEventArgs args)
+    {
+        // Console.WriteLine(args.OffsetX);
+        // Console.WriteLine(args.OffsetY);
+    }
+
+    private void OnCanvasKeyDown(KeyboardEventArgs args)
+    {
+        switch (args.Code)
+        {
+            case "Space":
+
+                _document?.AddChar(' ', _model.Color, _model.FontSize, _model.PixelSize);
+                _canvasView?.Invalidate();
+                break;
+            case "Enter":
+                _document?.AddChar('\n', _model.Color, _model.FontSize, _model.PixelSize);
+                _canvasView?.Invalidate();
+                break;
+            case "Backspace":
+                _document?.DeleteChar();
+                _canvasView?.Invalidate();
+                break;
+            case "Tab":
+                _document?.AddChar('\t', _model.Color, _model.FontSize, _model.PixelSize);
+                _canvasView?.Invalidate();
+                break;
+            case "ArrowRight":
+                _document?.PanRight();
+                _canvasView?.Invalidate();
+                break;
+            case "ArrowLeft":
+                _document?.PanLeft();
+                _canvasView?.Invalidate();
+                break;
+            default:
+                if (args.Key.Length == 1)
+                {
+                    _document?.AddChar(args.Key[0], _model.Color, _model.FontSize, _model.PixelSize);
+                    _canvasView?.Invalidate();
+                }
+
+                break;
+        }
+    }
+
+    private void OnCanvasWheel(WheelEventArgs eventArgs)
+    {
+        _document?.Scroll((float)eventArgs.DeltaY);
+        _canvasView?.Invalidate();
+    }
+
+}

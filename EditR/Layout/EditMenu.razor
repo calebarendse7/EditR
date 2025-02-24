@@ -1,0 +1,26 @@
+@using EditR.Models
+@using SkiaSharp
+<RadzenCard Variant="Variant.Filled">
+    <RadzenStack Orientation="Orientation.Horizontal">
+        <RadzenDropDown @bind-Value="Model.FontName" Data="Model.Fonts" Change="@(args => Model.FontName = $"{args}")"/>
+        <RadzenColorPicker @bind-Value="Model.Color" Change="OnColorChange"/>
+        <RadzenNumeric @bind-Value="Model.FontSize" Min="0" Max="100" TValue="int" Change="OnSizeChange"/>
+        <RadzenToggleButton Icon="format_bold"/>
+        <RadzenToggleButton Icon="format_italic"/>
+        <RadzenToggleButton Icon="format_underlined"/>
+    </RadzenStack>
+</RadzenCard>
+
+@code {
+    [Parameter] public required DocumentInfo Model { get; set; }
+
+    private void OnColorChange(string value)
+    {
+    }
+
+    private void OnSizeChange(int value)
+    {
+        Model.PixelSize = value * TextUtil.PixelPointRatio;
+    }
+
+}
