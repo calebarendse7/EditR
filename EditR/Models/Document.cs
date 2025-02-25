@@ -64,6 +64,7 @@ public class Document
         using SKPaint pageOutlinePaint = new();
         pageOutlinePaint.Style = SKPaintStyle.Stroke;
         pageOutlinePaint.Color = SKColors.LightGray;
+        pageOutlinePaint.IsAntialias = true;
         pageOutlinePaint.StrokeWidth = 1;
 
         for (var i = 0; i < _textBank.PageNum + 1; i++)
@@ -78,6 +79,7 @@ public class Document
     ///     Draws the cursor.
     /// </summary>
     /// <param name="canvas">The canvas where the cursor is drawn.</param>
+    /// <param name="pxSize">A float representing the pixel font size.</param>
     public void DrawCursor(SKCanvas canvas, float pxSize)
     {
         using var cursorPaint = new SKPaint();
@@ -85,7 +87,7 @@ public class Document
         cursorPaint.Style = SKPaintStyle.Fill;
         cursorPaint.Color = SKColors.Black;
         cursorPaint.StrokeWidth = 1.5f;
-    
+
         float x;
         float y;
         var size = pxSize;
@@ -111,8 +113,7 @@ public class Document
                 }
             }
 
-            //cursorPaint.Color = c.Width == 0 ? SKColors.Black : TextUtil.FindColor(_colors, c.Color);
-            cursorPaint.Color = SKColors.Black;
+            cursorPaint.Color = c.Width == 0 ? SKColors.Black : TextUtil.FindColor(_colors, c.Color);
         }
         else
         {
@@ -195,7 +196,7 @@ public class Document
         foreach (var character in _textBank)
         {
             textFont.Size = character.Size;
-            //paint.Color = TextUtil.FindColor(_colors, character.Color);
+            paint.Color = TextUtil.FindColor(_colors, character.Color);
             canvas.DrawText(character.Value.ToString(), character.Column, character.Row, textFont, paint);
         }
     }

@@ -71,6 +71,7 @@ public static class TextUtil
     ///     row.
     /// </param>
     /// <param name="rowNum">An int representing the row number.</param>
+    /// <param name="current">A RowInfo representing the current row.</param>
     /// <param name="lineSpace">A float representing the line spacing for the document.</param>
     private static void Update(Dictionary<int, RowInfo> fontsByRow, RowInfo current, int rowNum, float lineSpace)
     {
@@ -143,9 +144,8 @@ public static class TextUtil
     public static SKColor FindColor(Dictionary<string, SKColor> colors, string color)
     {
         if (colors.TryGetValue(color, out var c)) return c;
-        var s = color.Split(',');
-        c = new SKColor(byte.Parse(s[0][4..]), byte.Parse(s[1][1..]), byte.Parse(s[2][1..^1]));
-        colors[color] = c;
-        return c;
+        var result = SKColor.Parse(color);
+        colors[color] = result;
+        return result;
     }
 }

@@ -6,9 +6,12 @@
 <PageTitle>Home</PageTitle>
 
 <div id="document-interface">
-    <SKCanvasView IgnorePixelScaling="true" tabindex="0" @ref="_canvasView"
-                  @onclick="OnCanvasClick" @onkeydown="OnCanvasKeyDown"
-                  @onwheel="OnCanvasWheel" OnPaintSurface="OnPaintSurface"/>
+    <EditMenu Model="_model"/>
+    <div id="canvas-wrapper">
+        <SKCanvasView IgnorePixelScaling="true" tabindex="0" @ref="_canvasView"
+                      @onclick="OnCanvasClick" @onkeydown="OnCanvasKeyDown"
+                      @onwheel="OnCanvasWheel" OnPaintSurface="OnPaintSurface"/>
+    </div>
 </div>
 
 @code {
@@ -52,11 +55,11 @@
         {
             case "Space":
 
-                _document?.AddChar(' ', _model.Color, _model.FontSize, _model.PixelSize);
+                _document?.AddChar(' ', _model.Color, _model.PointSize, _model.PixelSize);
                 _canvasView?.Invalidate();
                 break;
             case "Enter":
-                _document?.AddChar('\n', _model.Color, _model.FontSize, _model.PixelSize);
+                _document?.AddChar('\n', _model.Color, _model.PointSize, _model.PixelSize);
                 _canvasView?.Invalidate();
                 break;
             case "Backspace":
@@ -64,7 +67,7 @@
                 _canvasView?.Invalidate();
                 break;
             case "Tab":
-                _document?.AddChar('\t', _model.Color, _model.FontSize, _model.PixelSize);
+                _document?.AddChar('\t', _model.Color, _model.PointSize, _model.PixelSize);
                 _canvasView?.Invalidate();
                 break;
             case "ArrowRight":
@@ -78,7 +81,7 @@
             default:
                 if (args.Key.Length == 1)
                 {
-                    _document?.AddChar(args.Key[0], _model.Color, _model.FontSize, _model.PixelSize);
+                    _document?.AddChar(args.Key[0], _model.Color, _model.PointSize, _model.PixelSize);
                     _canvasView?.Invalidate();
                 }
 

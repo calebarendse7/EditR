@@ -1,26 +1,56 @@
-@* @using EditR.Models *@
-@* @using SkiaSharp *@
-@* <RadzenCard Variant="Variant.Filled"> *@
-@*     <RadzenStack Orientation="Orientation.Horizontal"> *@
-@*         <RadzenDropDown @bind-Value="Model.FontName" Data="Model.Fonts" Change="@(args => Model.FontName = $"{args}")"/> *@
-@*         <RadzenColorPicker @bind-Value="Model.Color" Change="OnColorChange"/> *@
-@*         <RadzenNumeric @bind-Value="Model.FontSize" Min="0" Max="100" TValue="int" Change="OnSizeChange"/> *@
-@*         <RadzenToggleButton Icon="format_bold"/> *@
-@*         <RadzenToggleButton Icon="format_italic"/> *@
-@*         <RadzenToggleButton Icon="format_underlined"/> *@
-@*     </RadzenStack> *@
-@* </RadzenCard> *@
-@* *@
-@* @code { *@
-@*     [Parameter] public required DocumentInfo Model { get; set; } *@
-@* *@
-@*     private void OnColorChange(string value) *@
-@*     { *@
-@*     } *@
-@* *@
-@*     private void OnSizeChange(int value) *@
-@*     { *@
-@*         Model.PixelSize = value * TextUtil.PixelPointRatio; *@
-@*     } *@
-@* *@
-@* } *@
+@using EditR.Models
+<div id="document-menu">
+    <div class="document-menu-group">
+        <div class="menu-button-group">
+            <MudSelect @bind-Value="Model.FontName"
+                       Variant="Variant.Filled"
+                       Dense="true">
+                @foreach (var font in Model.Fonts)
+                {
+                    <MudSelectItem Value="font">@font</MudSelectItem>
+                }
+            </MudSelect>
+            <MudNumericField T="int" Value="Model.PointSize" ValueChanged="OnSizeChanged" Variant="Variant.Filled" Min="0"
+                             Max="100"/>
+            <div id="document-color-picker">
+                <MudButton Variant="Variant.Filled" OnClick="@ToggleColorPicker">
+                    <div class="color-fill-square" style="background-color: @Model.Color;"></div>
+                </MudButton>
+                <MudPopover Open="_isPickerShown" Fixed="true" AnchorOrigin="Origin.BottomCenter"
+                            TransformOrigin="Origin.TopCenter">
+                    <MudColorPicker PickerVariant="PickerVariant.Static" ShowAlpha="false" ShowPreview="false"
+                                    @bind-Text="Model.Color"/>
+                </MudPopover>
+            </div>
+
+            <MudToggleIconButton Variant="Variant.Filled" ToggledColor="@Color.Dark"
+                                 Icon="@Icons.Material.Filled.FormatBold"/>
+            <MudToggleIconButton Variant="Variant.Filled" ToggledColor="@Color.Dark"
+                                 Icon="@Icons.Material.Filled.FormatItalic"/>
+            <MudToggleIconButton Variant="Variant.Filled" ToggledColor="@Color.Dark"
+                                 Icon="@Icons.Material.Filled.FormatUnderlined"/>
+            <MudStack Row="true" Justify="Justify.Center">
+                <MudToggleIconButton ToggledColor="@Color.Dark" Variant="Variant.Filled"
+                                     Icon="@Icons.Material.Filled.FormatAlignLeft"/>
+                <MudToggleIconButton ToggledColor="@Color.Dark" Variant="Variant.Filled"
+                                     Icon="@Icons.Material.Filled.FormatAlignCenter"/>
+                <MudToggleIconButton ToggledColor="@Color.Dark" Variant="Variant.Filled"
+                                     Icon="@Icons.Material.Filled.FormatAlignRight"/>
+            </MudStack>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public required DocumentInfo Model { get; set; }
+    private bool _isPickerShown;
+
+    private void ToggleColorPicker() => _isPickerShown = !_isPickerShown;
+
+    private void OnSizeChanged(int value)
+    {
+        Model.PointSize = value;
+        Model.PixelSize = value * TextUtil.PixelPointRatio;
+    }
+
+}
