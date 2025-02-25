@@ -6,19 +6,36 @@ namespace EditR.Models;
 /// <summary>
 ///     Represents collection of characters.
 /// </summary>
-/// <param name="x">The x boundary of the text bank.</param>
-/// <param name="y">The y boundary of the text bank.</param>
-public class TextBank((float Start, float End) x, (float Start, float End, float THeight) y, float scrollOffset)
-    : IEnumerable<StyledChar>
+public class TextBank : IEnumerable<StyledChar>
 {
     private readonly RbList<StyledChar> _charList = [];
     private readonly Dictionary<int, RowInfo> _fontsByRow = [];
-    private float _pEnd = y.End + scrollOffset;
-
-    private float _pStart = y.Start + scrollOffset;
     public int TextCount => _charList.Count;
     public int PageNum { get; private set; }
+
+    private float _pEnd;
+    private float _pStart;
+    private (float Start, float End) _x;
+    private (float Start, float End, float THeight) _y;
+
     public StyledChar this[int i] => _charList[i];
+
+    /// <summary>
+    ///     Updates the boundary of the TextBank.
+    /// </summary>
+    /// <param name="xStart">A float representing the x starting position.</param>
+    /// <param name="xEnd">A float representing the x ending position.</param>
+    /// <param name="yStart">A float representing the y starting position.</param>
+    /// <param name="yEnd">A float representing the y ending position.</param>
+    /// <param name="yHeight">A float representing the y height.</param>
+    /// <param name="offset">A float representing the drawing offset.</param>
+    public void UpdateBoundaries(float xStart, float xEnd, float yStart, float yEnd, float yHeight, float offset)
+    {
+        _x = (xStart, xEnd);
+        _y = (yStart, yEnd, yHeight);
+        _pStart = yStart + offset;
+        _pEnd = yEnd + offset;
+    }
 
     /// <summary>
     ///     Returns an enumerator that iterates through the collection.
@@ -44,7 +61,7 @@ public class TextBank((float Start, float End) x, (float Start, float End, float
                 if (rStart > rEnd)
                 {
                     pNum++;
-                    var pStart = y.THeight * pNum;
+                    var pStart = _y.THeight * pNum;
                     rEnd += pStart;
                     rStart = _pStart + pStart + rowInfo.Height;
                 }
@@ -71,7 +88,7 @@ public class TextBank((float Start, float End) x, (float Start, float End, float
     public void Add(StyledChar item, int charPosition)
     {
         _charList.Insert(charPosition, item);
-        TextUtil.UpdateFrom(_charList, _fontsByRow, x, charPosition);
+        TextUtil.UpdateFrom(_charList, _fontsByRow, _x, charPosition);
     }
 
     /// <summary>
@@ -82,7 +99,7 @@ public class TextBank((float Start, float End) x, (float Start, float End, float
         var toRemove = _charList[charIndex];
         _charList.RemoveAt(charIndex);
         TextUtil.ReduceQuantity(_fontsByRow, toRemove.RowNum, toRemove.PtSize);
-        if (_charList.Count > 0) TextUtil.UpdateFrom(_charList, _fontsByRow, x, charIndex - 1);
+        if (_charList.Count > 0) TextUtil.UpdateFrom(_charList, _fontsByRow, _x, charIndex - 1);
     }
 
     /// <summary>
@@ -91,7 +108,7 @@ public class TextBank((float Start, float End) x, (float Start, float End, float
     /// <param name="offset">A float representing the text bank offset.</param>
     public void SetOffset(float offset)
     {
-        _pStart = y.Start + offset;
-        _pEnd = y.End + offset;
+        _pStart = _y.Start + offset;
+        _pEnd = _y.End + offset;
     }
 }

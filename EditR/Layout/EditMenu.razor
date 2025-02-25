@@ -10,7 +10,8 @@
                     <MudSelectItem Value="font">@font</MudSelectItem>
                 }
             </MudSelect>
-            <MudNumericField T="int" Value="Model.PointSize" ValueChanged="OnSizeChanged" Variant="Variant.Filled" Min="0"
+            <MudNumericField T="int" Value="Model.PointSize" ValueChanged="OnSizeChanged" Variant="Variant.Filled"
+                             Min="0"
                              Max="100"/>
             <div id="document-color-picker">
                 <MudButton Variant="Variant.Filled" OnClick="@ToggleColorPicker">

@@ -32,15 +32,20 @@
 
     private void OnPaintSurface(SKPaintSurfaceEventArgs args)
     {
-        _document ??= new Document((args.Info.Width, args.Info.Height), 816, 1056, 50, 96, 96, 96, 96, 1.15f);
+        if (_document is null)
+        {
+            _document = new Document((args.Info.Width, args.Info.Height));
+            _document.UpdateSettings(_model);
+        }
+
         if (_typeface is not null)
         {
             _document.SetTypeface(_typeface);
         }
 
-        _document.DrawPages(args.Surface.Canvas);
+        _document.DrawPages(args.Surface.Canvas, _model.Width, _model.Height);
         _document.DrawCharacters(args.Surface.Canvas);
-        _document.DrawCursor(args.Surface.Canvas, _model.PixelSize);
+        _document.DrawCursor(args.Surface.Canvas, _model.TopMargin, _model.LeftMargin, _model.PixelSize, _model.LineSpacing);
     }
 
     private static void OnCanvasClick(MouseEventArgs args)
@@ -54,7 +59,6 @@
         switch (args.Code)
         {
             case "Space":
-
                 _document?.AddChar(' ', _model.Color, _model.PointSize, _model.PixelSize);
                 _canvasView?.Invalidate();
                 break;
@@ -91,7 +95,7 @@
 
     private void OnCanvasWheel(WheelEventArgs eventArgs)
     {
-        _document?.Scroll((float)eventArgs.DeltaY);
+        _document?.Scroll((float)eventArgs.DeltaY, _model.Gap);
         _canvasView?.Invalidate();
     }
 

@@ -2,58 +2,42 @@ using SkiaSharp;
 
 namespace EditR.Models;
 
-public class Document
+public class Document((float Width, float Height) canvas)
 {
     private const float TabWidth = 0.5f * 96;
-    private readonly float _cBottom;
-    private readonly float _cCenter;
-    private readonly float _lineSpace;
-    private readonly (float Width, float Height, float LMargin, float RMargin, float TMargin, float BMargin) _page;
-    private readonly float _pGap;
-    private readonly float _pTotalHeight;
-    private readonly TextBank _textBank;
+    private readonly float _cHeight = canvas.Height;
+    private readonly float _cCenter = canvas.Width / 2;
+    private readonly TextBank _textBank = [];
+    private readonly Dictionary<string, SKColor> _colors = [];
+    private float _center;
+    private float _pTotalHeight;
+    private float _drawStartY;
+    private float _cBottom;
     private int _cursorPos;
-    private float _drawStart;
-    private SKTypeface _typeface;
-    private readonly Dictionary<string, SKColor> _colors;
+    private SKTypeface _typeface = SKTypeface.Default;
 
     /// <summary>
-    ///     Creates a document with the specified parameters.
+    ///     Updates the page 
     /// </summary>
-    /// <param name="canvas">A tuple representing the width and height of the canvas.</param>
-    /// <param name="pWidth">The width of each page.</param>
-    /// <param name="pHeight">The height of each page.</param>
-    /// <param name="pGap">The space between each page.</param>
-    /// <param name="lMargin">The left margin of each page.</param>
-    /// <param name="rMargin">The right margin of each page.</param>
-    /// <param name="tMargin">The top margin of each page.</param>
-    /// <param name="bMargin">The bottom margin of each page.</param>
-    /// <param name="lineSpace">The line space for lines on each page.</param>
-    public Document((float Width, float Height) canvas, float pWidth, float pHeight, float pGap, float lMargin,
-        float rMargin, float tMargin, float bMargin, float lineSpace)
+    /// <param name="info">A DocumentInfo representing </param>
+    public void UpdateSettings(DocumentInfo info)
     {
-        _cCenter = canvas.Width / 2 - pWidth / 2;
-        _cBottom = canvas.Height - pGap;
-
-        _page = (pWidth, pHeight, lMargin, rMargin, tMargin, bMargin);
-        _drawStart = pGap;
-        _pGap = pGap;
-        _lineSpace = lineSpace;
-
-        _pTotalHeight = pHeight + pGap;
-
-
-        _typeface = SKTypeface.Default;
-        _textBank = new TextBank((_cCenter + lMargin, _cCenter + pWidth - rMargin),
-            (_page.TMargin, pHeight - bMargin, _pTotalHeight), _drawStart);
-        _colors = [];
+        _center = _cCenter - info.Width / 2;
+        _cBottom = _cHeight - info.Gap;
+        _pTotalHeight = info.Height + info.Gap;
+        _drawStartY = info.Gap;
+        _textBank.UpdateBoundaries(_center + info.LeftMargin, _center + info.Width - info.RightMargin, info.TopMargin,
+            info.Height - info.BottomMargin,
+            _pTotalHeight, _drawStartY);
     }
 
     /// <summary>
     ///     Draws the pages of the document.
     /// </summary>
     /// <param name="canvas">The canvas where the pages are drawn.</param>
-    public void DrawPages(SKCanvas canvas)
+    /// <param name="width">The width of each page.</param>
+    /// <param name="height">The height of each page.</param>
+    public void DrawPages(SKCanvas canvas, float width, float height)
     {
         canvas.Clear(SKColors.White);
         using SKPaint pagePaint = new();
@@ -69,9 +53,9 @@ public class Document
 
         for (var i = 0; i < _textBank.PageNum + 1; i++)
         {
-            var y = _drawStart + i * _pTotalHeight;
-            canvas.DrawRect(_cCenter, y, _page.Width, _page.Height, pagePaint);
-            canvas.DrawRect(_cCenter, y, _page.Width, _page.Height, pageOutlinePaint);
+            var y = _drawStartY + i * _pTotalHeight;
+            canvas.DrawRect(_center, y, width, height, pagePaint);
+            canvas.DrawRect(_center, y, width, height, pageOutlinePaint);
         }
     }
 
@@ -79,8 +63,11 @@ public class Document
     ///     Draws the cursor.
     /// </summary>
     /// <param name="canvas">The canvas where the cursor is drawn.</param>
+    /// <param name="topMargin">A float representing the top margin of each page.</param>
+    /// <param name="leftMargin">A float representing the left margin of each page.</param>
     /// <param name="pxSize">A float representing the pixel font size.</param>
-    public void DrawCursor(SKCanvas canvas, float pxSize)
+    /// <param name="lineSpace">A float representing the line space for each line.</param>
+    public void DrawCursor(SKCanvas canvas, float topMargin, float leftMargin, float pxSize, float lineSpace)
     {
         using var cursorPaint = new SKPaint();
         cursorPaint.IsAntialias = true;
@@ -100,7 +87,7 @@ public class Document
             size = c.Size;
             if (c.Value == '\n')
             {
-                x = _cCenter + _page.LMargin;
+                x = _center + leftMargin;
                 if (_cursorPos < _textBank.TextCount)
                 {
                     var next = _textBank[_cursorPos];
@@ -109,17 +96,17 @@ public class Document
                 }
                 else
                 {
-                    y += TextUtil.LineHeight(new SKFont(_typeface, pxSize).Metrics) * _lineSpace;
+                    y += TextUtil.LineHeight(new SKFont(_typeface, pxSize).Metrics) * lineSpace;
                 }
             }
 
-            cursorPaint.Color = c.Width == 0 ? SKColors.Black : TextUtil.FindColor(_colors, c.Color);
+            cursorPaint.Color = char.IsWhiteSpace(c.Value) ? SKColors.Black : TextUtil.FindColor(_colors, c.Color);
         }
         else
         {
-            x = _cCenter + _page.LMargin;
-            y = _drawStart + _page.TMargin +
-                TextUtil.LineHeight(new SKFont(_typeface, pxSize).Metrics) * _lineSpace;
+            x = _center + leftMargin;
+            y = _drawStartY + topMargin +
+                TextUtil.LineHeight(new SKFont(_typeface, pxSize).Metrics) * lineSpace;
         }
 
         canvas.DrawLine(x, y - size, x, y, cursorPaint);
@@ -129,16 +116,17 @@ public class Document
     ///     Scrolls the pages of the document.
     /// </summary>
     /// <param name="deltaY">The amount to scroll.</param>
-    public void Scroll(float deltaY)
+    /// <param name="gap">A float representing the gap between each page.</param>
+    public void Scroll(float deltaY, float gap)
     {
-        _drawStart -= deltaY;
+        _drawStartY -= deltaY;
 
         /* Set limits on scroll */
-        if (_drawStart > _pGap)
-            _drawStart = _pGap;
-        else if (_drawStart + (_textBank.PageNum + 1) * _pTotalHeight < _cBottom)
-            _drawStart = _cBottom - (_textBank.PageNum + 1) * _pTotalHeight;
-        _textBank.SetOffset(_drawStart);
+        if (_drawStartY > gap)
+            _drawStartY = gap;
+        else if (_drawStartY + (_textBank.PageNum + 1) * _pTotalHeight < _cBottom)
+            _drawStartY = _cBottom - (_textBank.PageNum + 1) * _pTotalHeight;
+        _textBank.SetOffset(_drawStartY);
     }
 
     /// <summary>
@@ -155,6 +143,7 @@ public class Document
         textPaint.Typeface = _typeface;
 
         float width = 0;
+        var color = "#00000000";
         if (character == '\t')
         {
             width = TabWidth;
@@ -162,13 +151,14 @@ public class Document
         else if (character != '\n')
         {
             width = textPaint.MeasureText(char.ToString(character));
+            color = rgbColor;
         }
 
         _textBank.Add(new StyledChar
         {
             Value = character, Width = width, Height = TextUtil.LineHeight(textPaint.Metrics),
             Padding = textPaint.Metrics.Descent + textPaint.Metrics.Leading, Size = pxSize, PtSize = ptSize,
-            Color = rgbColor
+            Color = color
         }, _cursorPos++);
     }
 

@@ -3,32 +3,39 @@ html {
     flex-direction: column;
     min-height: 100%;
 }
+
 body {
     overflow: hidden;
 }
+
 body, #app, div.mud-layout, div.mud-main-content, #document-interface {
     display: flex;
     flex-direction: column;
     flex: 1;
 }
+
 #canvas-wrapper {
     flex: 1;
 }
+
 canvas {
     width: 100%;
     height: 99%;
 }
+
 #document-menu {
     padding: 15px;
     position: absolute;
     left: 31%;
 }
+
 .document-menu-group {
     max-width: 600px;
     background-color: lightgray;
     border-radius: 500px;
     padding: 20px;
 }
+
 .menu-button-group {
     padding: 0 15px;
     display: flex;
