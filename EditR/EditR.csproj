@@ -7,22 +7,22 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="LanguageExt.Core" Version="4.4.9"/>
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.0"/>
-        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.0" PrivateAssets="all"/>
-        <PackageReference Include="MudBlazor" Version="8.3.0"/>
-        <PackageReference Include="SkiaSharp" Version="3.116.1"/>
-        <PackageReference Include="SkiaSharp.NativeAssets.WebAssembly" Version="3.116.1"/>
-        <PackageReference Include="SkiaSharp.Views.Blazor" Version="3.116.1"/>
+        <PackageReference Include="LanguageExt.Core" Version="4.4.9" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.0" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.0" PrivateAssets="all" />
+        <PackageReference Include="MudBlazor" Version="8.3.0" />
+        <PackageReference Include="SkiaSharp" Version="3.118.0-preview.2.3" />
+        <PackageReference Include="SkiaSharp.NativeAssets.WebAssembly" Version="3.118.0-preview.2.3" />
+        <PackageReference Include="SkiaSharp.Views.Blazor" Version="3.118.0-preview.2.3" />
     </ItemGroup>
 
     <ItemGroup>
-        <None Include="wwwroot\fonts\Arial.ttf"/>
-        <None Include="wwwroot\fonts\ArialBold.ttf"/>
+        <None Include="wwwroot\fonts\Arial.ttf" />
+        <None Include="wwwroot\fonts\ArialBold.ttf" />
     </ItemGroup>
 
     <ItemGroup>
-        <_ContentIncludedByDefault Remove="wwwroot\sample-data\weather.json"/>
+        <_ContentIncludedByDefault Remove="wwwroot\sample-data\weather.json" />
     </ItemGroup>
 
 </Project>

@@ -13,13 +13,12 @@
                       @onwheel="OnCanvasWheel" OnPaintSurface="OnPaintSurface"/>
     </div>
 </div>
-
-@code {
+@code { 
     private readonly DocumentInfo _model = new();
     private Document? _document;
     private SKCanvasView? _canvasView;
-    private SKTypeface? _typeface;
-
+    private SKTypeface _typeface = SKTypeface.Default;
+    
     protected override void OnInitialized()
     {
     }
@@ -28,6 +27,7 @@
     {
         await using var stream = await Client.GetStreamAsync($"fonts/Arial.ttf");
         _typeface = SKTypeface.FromStream(stream);
+        
     }
 
     private void OnPaintSurface(SKPaintSurfaceEventArgs args)
@@ -37,12 +37,8 @@
             _document = new Document((args.Info.Width, args.Info.Height));
             _document.UpdateSettings(_model);
         }
-
-        if (_typeface is not null)
-        {
-            _document.SetTypeface(_typeface);
-        }
-
+        _document.SetTypeface(_typeface);
+        
         _document.DrawPages(args.Surface.Canvas, _model.Width, _model.Height);
         _document.DrawCharacters(args.Surface.Canvas);
         _document.DrawCursor(args.Surface.Canvas, _model.TopMargin, _model.LeftMargin, _model.PixelSize, _model.LineSpacing);
