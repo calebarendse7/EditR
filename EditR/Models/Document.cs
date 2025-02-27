@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using SkiaSharp;
 
 namespace EditR.Models;
@@ -14,21 +15,20 @@ public class Document((float Width, float Height) canvas)
     private float _drawStartY;
     private float _cBottom;
     private int _cursorPos;
-    private SKTypeface _typeface = SKTypeface.Default;
 
     /// <summary>
     ///     Updates the page 
     /// </summary>
-    /// <param name="info">A DocumentInfo representing </param>
-    public void UpdateSettings(DocumentInfo info)
+    /// <param name="info">A DocumentInfo representing the dimensions of the page.</param>
+    public void UpdateSettings(PageInfo info)
     {
         _center = _cCenter - info.Width / 2;
         _cBottom = _cHeight - info.Gap;
         _pTotalHeight = info.Height + info.Gap;
         _drawStartY = info.Gap;
         _textBank.UpdateBoundaries(_center + info.LeftMargin, _center + info.Width - info.RightMargin, info.TopMargin,
-            info.Height - info.BottomMargin,
-            _pTotalHeight, _drawStartY);
+            info.Height,
+            _pTotalHeight, info.BottomMargin, _drawStartY);
     }
 
     /// <summary>
@@ -67,7 +67,8 @@ public class Document((float Width, float Height) canvas)
     /// <param name="leftMargin">A float representing the left margin of each page.</param>
     /// <param name="pxSize">A float representing the pixel font size.</param>
     /// <param name="lineSpace">A float representing the line space for each line.</param>
-    public void DrawCursor(SKCanvas canvas, float topMargin, float leftMargin, float pxSize, float lineSpace)
+    public void DrawCursor(SKCanvas canvas, float topMargin, float leftMargin, float pxSize, float lineSpace,
+        SKTypeface typeface)
     {
         using var cursorPaint = new SKPaint();
         cursorPaint.IsAntialias = true;
@@ -96,7 +97,7 @@ public class Document((float Width, float Height) canvas)
                 }
                 else
                 {
-                    y += TextUtil.LineHeight(new SKFont(_typeface, pxSize).Metrics) * lineSpace;
+                    y += TextUtil.LineHeight(new SKFont(typeface, pxSize).Metrics) * lineSpace;
                 }
             }
 
@@ -106,7 +107,7 @@ public class Document((float Width, float Height) canvas)
         {
             x = _center + leftMargin;
             y = _drawStartY + topMargin +
-                TextUtil.LineHeight(new SKFont(_typeface, pxSize).Metrics) * lineSpace;
+                TextUtil.LineHeight(new SKFont(typeface, pxSize).Metrics) * lineSpace;
         }
 
         canvas.DrawLine(x, y - size, x, y, cursorPaint);
@@ -133,14 +134,11 @@ public class Document((float Width, float Height) canvas)
     ///     Adds a character to the document.
     /// </summary>
     /// <param name="character">A char representing the character to add.</param>
-    /// <param name="rgbColor">A string representing the font color.</param>
-    /// <param name="ptSize">An int representing the point font size.</param>
-    /// <param name="pxSize">A float representing the pixel font size.</param>
-    public void AddChar(char character, string rgbColor, int ptSize, float pxSize)
+    public void AddChar(char character, PageInfo pageInfo, SKTypeface typeface)
     {
         using var textPaint = new SKFont();
-        textPaint.Size = pxSize;
-        textPaint.Typeface = _typeface;
+        textPaint.Size = pageInfo.PixelSize;
+        textPaint.Typeface = typeface;
 
         float width = 0;
         var color = "#00000000";
@@ -151,13 +149,15 @@ public class Document((float Width, float Height) canvas)
         else if (character != '\n')
         {
             width = textPaint.MeasureText(char.ToString(character));
-            color = rgbColor;
+            color = pageInfo.Color;
         }
 
         _textBank.Add(new StyledChar
         {
-            Value = character, Width = width, Height = TextUtil.LineHeight(textPaint.Metrics),
-            Padding = textPaint.Metrics.Descent + textPaint.Metrics.Leading, Size = pxSize, PtSize = ptSize,
+            Value = character, FontIndex = pageInfo.SelectedFont.Index, Width = width,
+            Height = TextUtil.LineHeight(textPaint.Metrics),
+            Padding = textPaint.Metrics.Descent + textPaint.Metrics.Leading, Size = pageInfo.PixelSize,
+            PtSize = pageInfo.PointSize,
             Color = color
         }, _cursorPos++);
     }
@@ -175,29 +175,26 @@ public class Document((float Width, float Height) canvas)
     ///     Draws the document's characters to the canvas.
     /// </summary>
     /// <param name="canvas">The canvas where the characters are drawn.</param>
-    public void DrawCharacters(SKCanvas canvas)
+    /// <param name="fonts">A Dictionary representing the family name of the font.</param>
+    public void DrawCharacters(SKCanvas canvas, ImmutableDictionary<int, SKTypeface> fonts)
     {
         using var textFont = new SKFont();
         using var paint = new SKPaint();
-        textFont.Typeface = _typeface;
+
         paint.Color = SKColors.Black;
         paint.IsAntialias = true;
-
+        var fontIndex = -1;
         foreach (var character in _textBank)
         {
             textFont.Size = character.Size;
+            if (fontIndex != character.FontIndex)
+            {
+                textFont.Typeface = fonts.GetValueOrDefault(fontIndex = character.FontIndex, SKTypeface.Default);
+            }
+
             paint.Color = TextUtil.FindColor(_colors, character.Color);
             canvas.DrawText(character.Value.ToString(), character.Column, character.Row, textFont, paint);
         }
-    }
-
-    /// <summary>
-    ///     Changes the typeface of the document.
-    /// </summary>
-    /// <param name="typeface">The new typeface.</param>
-    public void SetTypeface(SKTypeface typeface)
-    {
-        _typeface = typeface;
     }
 
     /// <summary>

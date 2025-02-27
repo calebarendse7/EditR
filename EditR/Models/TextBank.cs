@@ -13,10 +13,11 @@ public class TextBank : IEnumerable<StyledChar>
     public int TextCount => _charList.Count;
     public int PageNum { get; private set; }
 
-    private float _pEnd;
-    private float _pStart;
+    private float _offsetHeight;
+    private float _rStart;
     private (float Start, float End) _x;
-    private (float Start, float End, float THeight) _y;
+    private (float Start, float Height, float THeight) _y;
+    private float _bottomMargin;
 
     public StyledChar this[int i] => _charList[i];
 
@@ -26,15 +27,18 @@ public class TextBank : IEnumerable<StyledChar>
     /// <param name="xStart">A float representing the x starting position.</param>
     /// <param name="xEnd">A float representing the x ending position.</param>
     /// <param name="yStart">A float representing the y starting position.</param>
-    /// <param name="yEnd">A float representing the y ending position.</param>
-    /// <param name="yHeight">A float representing the y height.</param>
+    /// <param name="yHeight">A float representing the page height.</param>
+    /// <param name="yTotalHeight">A float representing the total page height with the page gap.</param>
+    /// <param name="bottomMargin">A float representing the bottom margin.</param>
     /// <param name="offset">A float representing the drawing offset.</param>
-    public void UpdateBoundaries(float xStart, float xEnd, float yStart, float yEnd, float yHeight, float offset)
+    public void UpdateBoundaries(float xStart, float xEnd, float yStart, float yHeight, float yTotalHeight,
+        float bottomMargin, float offset)
     {
         _x = (xStart, xEnd);
-        _y = (yStart, yEnd, yHeight);
-        _pStart = yStart + offset;
-        _pEnd = yEnd + offset;
+        _y = (yStart, yHeight, yTotalHeight);
+        _bottomMargin = bottomMargin;
+        _rStart = yStart + offset;
+        _offsetHeight = yHeight + offset;
     }
 
     /// <summary>
@@ -45,8 +49,8 @@ public class TextBank : IEnumerable<StyledChar>
     {
         var cRow = -1;
         var pNum = 0;
-        var rStart = _pStart;
-        var rEnd = _pEnd;
+        var rStart = _rStart;
+        var rEnd = _offsetHeight - _bottomMargin;
         foreach (var item in _charList)
         {
             if (cRow != item.RowNum)
@@ -62,8 +66,8 @@ public class TextBank : IEnumerable<StyledChar>
                 {
                     pNum++;
                     var pStart = _y.THeight * pNum;
-                    rEnd += pStart;
-                    rStart = _pStart + pStart + rowInfo.Height;
+                    rEnd = _offsetHeight + pStart - _bottomMargin;
+                    rStart = _rStart + pStart + rowInfo.Height;
                 }
             }
 
@@ -108,7 +112,7 @@ public class TextBank : IEnumerable<StyledChar>
     /// <param name="offset">A float representing the text bank offset.</param>
     public void SetOffset(float offset)
     {
-        _pStart = _y.Start + offset;
-        _pEnd = _y.End + offset;
+        _rStart = _y.Start + offset;
+        _offsetHeight = _y.Height + offset;
     }
 }

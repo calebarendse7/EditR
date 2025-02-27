@@ -2,9 +2,12 @@
 <div id="document-menu">
     <div class="document-menu-group">
         <div class="menu-button-group">
-            <MudSelect @bind-Value="Model.FontName"
-                       Variant="Variant.Filled"
-                       Dense="true">
+            <MudSelect
+                T="FontSelectRow"
+                Value="Model.SelectedFont"
+                ValueChanged="FontValueChanged"
+                Variant="Variant.Filled"
+                Dense="true">
                 @foreach (var font in Model.Fonts)
                 {
                     <MudSelectItem Value="font">@font</MudSelectItem>
@@ -43,7 +46,8 @@
 </div>
 
 @code {
-    [Parameter] public required DocumentInfo Model { get; set; }
+    [Parameter] public required PageInfo Model { get; set; }
+    [Parameter] public EventCallback<FontSelectRow> FontValueChanged { get; set; }
     private bool _isPickerShown;
 
     private void ToggleColorPicker() => _isPickerShown = !_isPickerShown;

@@ -1,33 +1,28 @@
 ﻿@page "/"
 @using EditR.Models
-@using SkiaSharp
+@using EditR.Services
 @using SkiaSharp.Views.Blazor
-@inject HttpClient Client;
+@inject IFontService FontService;
+
 <PageTitle>Home</PageTitle>
 
 <div id="document-interface">
-    <EditMenu Model="_model"/>
+    <EditMenu Model="_model" FontValueChanged="OnFontSelected"/>
     <div id="canvas-wrapper">
         <SKCanvasView IgnorePixelScaling="true" tabindex="0" @ref="_canvasView"
                       @onclick="OnCanvasClick" @onkeydown="OnCanvasKeyDown"
                       @onwheel="OnCanvasWheel" OnPaintSurface="OnPaintSurface"/>
     </div>
 </div>
-@code { 
-    private readonly DocumentInfo _model = new();
+
+@code {
+    private readonly PageInfo _model = new();
     private Document? _document;
     private SKCanvasView? _canvasView;
-    private SKTypeface _typeface = SKTypeface.Default;
-    
-    protected override void OnInitialized()
-    {
-    }
 
     protected override async Task OnInitializedAsync()
     {
-        await using var stream = await Client.GetStreamAsync($"fonts/Arial.ttf");
-        _typeface = SKTypeface.FromStream(stream);
-        
+        await FontService.LoadFont(_model.SelectedFont.Index);
     }
 
     private void OnPaintSurface(SKPaintSurfaceEventArgs args)
@@ -37,11 +32,13 @@
             _document = new Document((args.Info.Width, args.Info.Height));
             _document.UpdateSettings(_model);
         }
-        _document.SetTypeface(_typeface);
-        
+
+        var fonts = FontService.GetAllFonts();
+        var currentFont = fonts[_model.SelectedFont.Index];
+
         _document.DrawPages(args.Surface.Canvas, _model.Width, _model.Height);
-        _document.DrawCharacters(args.Surface.Canvas);
-        _document.DrawCursor(args.Surface.Canvas, _model.TopMargin, _model.LeftMargin, _model.PixelSize, _model.LineSpacing);
+        _document.DrawCharacters(args.Surface.Canvas, fonts);
+        _document.DrawCursor(args.Surface.Canvas, _model.TopMargin, _model.LeftMargin, _model.PixelSize, _model.LineSpacing, currentFont);
     }
 
     private static void OnCanvasClick(MouseEventArgs args)
@@ -52,47 +49,49 @@
 
     private void OnCanvasKeyDown(KeyboardEventArgs args)
     {
+        var currentFont = FontService.GetFont(_model.SelectedFont.Index);
         switch (args.Code)
         {
             case "Space":
-                _document?.AddChar(' ', _model.Color, _model.PointSize, _model.PixelSize);
-                _canvasView?.Invalidate();
+                _document?.AddChar(' ', _model, currentFont);
                 break;
             case "Enter":
-                _document?.AddChar('\n', _model.Color, _model.PointSize, _model.PixelSize);
-                _canvasView?.Invalidate();
+                _document?.AddChar('\n', _model, currentFont);
                 break;
             case "Backspace":
                 _document?.DeleteChar();
-                _canvasView?.Invalidate();
                 break;
             case "Tab":
-                _document?.AddChar('\t', _model.Color, _model.PointSize, _model.PixelSize);
-                _canvasView?.Invalidate();
+                _document?.AddChar('\t', _model, currentFont);
                 break;
             case "ArrowRight":
                 _document?.PanRight();
-                _canvasView?.Invalidate();
                 break;
             case "ArrowLeft":
                 _document?.PanLeft();
-                _canvasView?.Invalidate();
                 break;
             default:
                 if (args.Key.Length == 1)
                 {
-                    _document?.AddChar(args.Key[0], _model.Color, _model.PointSize, _model.PixelSize);
-                    _canvasView?.Invalidate();
+                    _document?.AddChar(args.Key[0], _model, currentFont);
                 }
 
                 break;
         }
+
+        _canvasView?.Invalidate();
     }
 
     private void OnCanvasWheel(WheelEventArgs eventArgs)
     {
         _document?.Scroll((float)eventArgs.DeltaY, _model.Gap);
         _canvasView?.Invalidate();
+    }
+
+    private async Task OnFontSelected(FontSelectRow row)
+    {
+        _model.SelectedFont = row;
+        await FontService.LoadFont(row.Index);
     }
 
 }
