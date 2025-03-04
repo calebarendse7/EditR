@@ -115,4 +115,47 @@ public class TextBank : IEnumerable<StyledChar>
         _rStart = _y.Start + offset;
         _offsetHeight = _y.Height + offset;
     }
+
+    /// <summary>
+    ///     Finds character nearest to a point in the TextBank.
+    /// </summary>
+    /// <param name="pos">A Tuple representing the origin point.</param>
+    /// <returns>An int representing the index of the nearest character to the origin point.</returns>
+    public int FindNearestChar((float X, float Y) pos)
+    {
+        var result = 0;
+        var textCount = _charList.Count - 1;
+        var rowDist = float.MaxValue;
+        var columnDist = float.MaxValue;
+        var rowNum = -1;
+        for (var i = 0; i < _charList.Count; i++)
+        {
+            var c = _charList[i];
+            if (c.RowNum != rowNum)
+            {
+                var nearestRow = Math.Abs(pos.Y - c.Row);
+                if (nearestRow < rowDist)
+                {
+                    rowDist = nearestRow;
+                    columnDist = float.MaxValue;
+                    rowNum = c.RowNum;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            var nearestColumn = Math.Abs(pos.X - c.Column);
+            if (nearestColumn >= columnDist) continue;
+            columnDist = nearestColumn;
+            result = i;
+            if (result == textCount && Math.Abs(pos.X - (c.Column + c.Width)) < nearestColumn)
+            {
+                result++;
+            }
+        }
+
+        return result;
+    }
 }

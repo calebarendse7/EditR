@@ -14,7 +14,13 @@ public class Document((float Width, float Height) canvas)
     private float _pTotalHeight;
     private float _drawStartY;
     private float _cBottom;
-    private int _cursorPos;
+    private int _insertPos;
+
+    private float _cursorX;
+    private float _cursorY;
+    private float _cursorSize;
+
+    private bool _updatedPosition;
 
     /// <summary>
     ///     Updates the page 
@@ -67,50 +73,37 @@ public class Document((float Width, float Height) canvas)
     /// <param name="leftMargin">A float representing the left margin of each page.</param>
     /// <param name="pxSize">A float representing the pixel font size.</param>
     /// <param name="lineSpace">A float representing the line space for each line.</param>
+    /// <param name="typeface">An SKTypeface representing the selected typeface.</param>
     public void DrawCursor(SKCanvas canvas, float topMargin, float leftMargin, float pxSize, float lineSpace,
         SKTypeface typeface)
     {
         using var cursorPaint = new SKPaint();
         cursorPaint.IsAntialias = true;
-        cursorPaint.Style = SKPaintStyle.Fill;
         cursorPaint.Color = SKColors.Black;
         cursorPaint.StrokeWidth = 1.5f;
 
-        float x;
-        float y;
-        var size = pxSize;
-        var pos = _cursorPos - 1;
-        if (_textBank.TextCount > 0 && pos >= 0)
+        if (_textBank.TextCount == 0)
         {
-            var c = _textBank[pos];
-            x = c.Column + c.Width;
-            y = c.Row;
-            size = c.Size;
-            if (c.Value == '\n')
+            _cursorX = _center + leftMargin;
+            _cursorY = _drawStartY + topMargin +
+                       TextUtil.LineHeight(new SKFont(typeface, pxSize).Metrics) * lineSpace;
+            _cursorSize = pxSize;
+        }
+        else if (_updatedPosition)
+        {
+            var current = _textBank[Math.Min(_insertPos, _textBank.TextCount - 1)];
+            (_cursorX, _cursorY) = (_insertPos == _textBank.TextCount, current.Value == '\n') switch
             {
-                x = _center + leftMargin;
-                if (_cursorPos < _textBank.TextCount)
-                {
-                    var next = _textBank[_cursorPos];
-                    y = next.Row;
-                    size = next.Size;
-                }
-                else
-                {
-                    y += TextUtil.LineHeight(new SKFont(typeface, pxSize).Metrics) * lineSpace;
-                }
-            }
-
-            cursorPaint.Color = char.IsWhiteSpace(c.Value) ? SKColors.Black : TextUtil.FindColor(_colors, c.Color);
-        }
-        else
-        {
-            x = _center + leftMargin;
-            y = _drawStartY + topMargin +
-                TextUtil.LineHeight(new SKFont(typeface, pxSize).Metrics) * lineSpace;
+                (true, false) => (current.Column + current.Width, current.Row),
+                (false, true) => (current.Column, current.Row),
+                (true, true) => (_center + leftMargin, current.Row + current.Height * lineSpace),
+                (false, false) => (current.Column, current.Row),
+            };
+            _cursorSize = current.Size;
         }
 
-        canvas.DrawLine(x, y - size, x, y, cursorPaint);
+        canvas.DrawLine(_cursorX, _cursorY - _cursorSize, _cursorX, _cursorY, cursorPaint);
+        _updatedPosition = false;
     }
 
     /// <summary>
@@ -128,12 +121,15 @@ public class Document((float Width, float Height) canvas)
         else if (_drawStartY + (_textBank.PageNum + 1) * _pTotalHeight < _cBottom)
             _drawStartY = _cBottom - (_textBank.PageNum + 1) * _pTotalHeight;
         _textBank.SetOffset(_drawStartY);
+        _updatedPosition = true;
     }
 
     /// <summary>
     ///     Adds a character to the document.
     /// </summary>
     /// <param name="character">A char representing the character to add.</param>
+    /// <param name="pageInfo">A PageInfo representing the parameters of each page.</param>
+    /// <param name="typeface">An SKTypeface representing the selected typeface.</param>
     public void AddChar(char character, PageInfo pageInfo, SKTypeface typeface)
     {
         using var textPaint = new SKFont();
@@ -159,7 +155,8 @@ public class Document((float Width, float Height) canvas)
             Padding = textPaint.Metrics.Descent + textPaint.Metrics.Leading, Size = pageInfo.PixelSize,
             PtSize = pageInfo.PointSize,
             Color = color
-        }, _cursorPos++);
+        }, _insertPos++);
+        _updatedPosition = true;
     }
 
     /// <summary>
@@ -167,8 +164,9 @@ public class Document((float Width, float Height) canvas)
     /// </summary>
     public void DeleteChar()
     {
-        if (_textBank.TextCount == 0 || _cursorPos - 1 < 0) return;
-        _textBank.Remove(--_cursorPos);
+        if (_textBank.TextCount == 0 || _insertPos - 1 < 0) return;
+        _textBank.Remove(--_insertPos);
+        _updatedPosition = true;
     }
 
     /// <summary>
@@ -202,7 +200,9 @@ public class Document((float Width, float Height) canvas)
     /// </summary>
     public void PanLeft()
     {
-        if (_cursorPos > 0) _cursorPos--;
+        if (_insertPos <= 0) return;
+        _insertPos--;
+        _updatedPosition = true;
     }
 
     /// <summary>
@@ -210,6 +210,14 @@ public class Document((float Width, float Height) canvas)
     /// </summary>
     public void PanRight()
     {
-        if (_cursorPos < _textBank.TextCount) _cursorPos++;
+        if (_insertPos >= _textBank.TextCount) return;
+        _insertPos++;
+        _updatedPosition = true;
+    }
+
+    public void MoveCursor((float, float) pos)
+    {
+        _insertPos = _textBank.FindNearestChar(pos);
+        _updatedPosition = true;
     }
 }

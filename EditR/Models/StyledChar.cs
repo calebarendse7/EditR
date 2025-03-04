@@ -1,5 +1,3 @@
-using SkiaSharp;
-
 namespace EditR.Models;
 
 public class StyledChar
@@ -30,6 +28,6 @@ public class StyledChar
     public override string ToString()
     {
         var p = Value == '\n' ? "\\n" : Value.ToString();
-        return $"(Value: {p}, Column: {Column}, Row: {RowNum}, Position {Row})";
+        return $"(Value: {p}, Column: {Column}, Row: {Row}, RowNumber: {RowNum})";
     }
 }

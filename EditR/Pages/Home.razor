@@ -41,10 +41,10 @@
         _document.DrawCursor(args.Surface.Canvas, _model.TopMargin, _model.LeftMargin, _model.PixelSize, _model.LineSpacing, currentFont);
     }
 
-    private static void OnCanvasClick(MouseEventArgs args)
+    private void OnCanvasClick(MouseEventArgs args)
     {
-        // Console.WriteLine(args.OffsetX);
-        // Console.WriteLine(args.OffsetY);
+        _document?.MoveCursor(((float)args.OffsetX, (float)args.OffsetY));
+        _canvasView?.Invalidate();
     }
 
     private void OnCanvasKeyDown(KeyboardEventArgs args)
@@ -56,6 +56,7 @@
                 _document?.AddChar(' ', _model, currentFont);
                 break;
             case "Enter":
+                Console.WriteLine("Enter clicked");
                 _document?.AddChar('\n', _model, currentFont);
                 break;
             case "Backspace":
