@@ -13,6 +13,7 @@ public class StyledChar
     public float Column { get; set; }
     public int RowNum { get; set; } = -1;
     public float Row { get; set; }
+    public bool IsSelected { get; set; }
 
     public void Deconstruct(out char value, out float width, out float height, out float padding, out float size,
         out string color)

@@ -1,4 +1,5 @@
 using EditR.Models.RBList;
+using LanguageExt;
 using SkiaSharp;
 
 namespace EditR.Models;
@@ -147,5 +148,22 @@ public static class TextUtil
         var result = SKColor.Parse(color);
         colors[color] = result;
         return result;
+    }
+    
+    public static Option<(float, float, int, int)> CheckDist((float Col, float Row) delta, (int Current, int Test) row,
+        (float X, float Y) origin, (float X, float Y) point, (int I, int C) indices, bool exitEarly = true)
+    {
+        if (row.Current != row.Test)
+        {
+            var nearestRow = Math.Abs(origin.Y - point.Y);
+            return nearestRow < delta.Row
+                ? (Math.Abs(origin.X - point.X), nearestRow, row.Test, indices.I)
+                : Option<(float, float, int, int)>.None;
+        }
+
+        var nearestColumn = Math.Abs(origin.X - point.X);
+        if (nearestColumn < delta.Col)
+             return (nearestColumn, delta.Row, row.Current, indices.I);
+        return exitEarly ? Option<(float, float, int, int)>.None : (delta.Col, delta.Row, row.Current, indices.C);
     }
 }

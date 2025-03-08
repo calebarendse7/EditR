@@ -1,6 +1,9 @@
 ﻿@page "/"
+@using System.Drawing
 @using EditR.Models
 @using EditR.Services
+@using LanguageExt.Pipes
+@using LanguageExt.Pretty
 @using SkiaSharp.Views.Blazor
 @inject IFontService FontService;
 
@@ -10,7 +13,8 @@
     <EditMenu Model="_model" FontValueChanged="OnFontSelected"/>
     <div id="canvas-wrapper">
         <SKCanvasView IgnorePixelScaling="true" tabindex="0" @ref="_canvasView"
-                      @onclick="OnCanvasClick" @onkeydown="OnCanvasKeyDown"
+                      @onpointerup="CanvasOnPointerUp" @onpointermove="CanvasOnPointerMove"
+                      @onpointerdown="CanvasOnPointerDown" @onkeydown="OnCanvasKeyDown"
                       @onwheel="OnCanvasWheel" OnPaintSurface="OnPaintSurface"/>
     </div>
 </div>
@@ -19,6 +23,11 @@
     private readonly PageInfo _model = new();
     private Document? _document;
     private SKCanvasView? _canvasView;
+
+    private double _xStart;
+    private double _yStart;
+    private bool _isPointerDown;
+    private bool _isPointerDrag;
 
     protected override async Task OnInitializedAsync()
     {
@@ -39,12 +48,6 @@
         _document.DrawPages(args.Surface.Canvas, _model.Width, _model.Height);
         _document.DrawCharacters(args.Surface.Canvas, fonts);
         _document.DrawCursor(args.Surface.Canvas, _model.TopMargin, _model.LeftMargin, _model.PixelSize, _model.LineSpacing, currentFont);
-    }
-
-    private void OnCanvasClick(MouseEventArgs args)
-    {
-        _document?.MoveCursor(((float)args.OffsetX, (float)args.OffsetY));
-        _canvasView?.Invalidate();
     }
 
     private void OnCanvasKeyDown(KeyboardEventArgs args)
@@ -93,6 +96,38 @@
     {
         _model.SelectedFont = row;
         await FontService.LoadFont(row.Index);
+    }
+
+    private void CanvasOnPointerDown(PointerEventArgs obj)
+    {
+        switch (obj.Button)
+        {
+            case 0:
+                _isPointerDown = true;
+                _isPointerDrag = false;
+                _xStart = obj.OffsetX;
+                _yStart = obj.OffsetY;
+                break;
+        }
+    }
+
+    private void CanvasOnPointerUp(PointerEventArgs obj)
+    {
+        _isPointerDown = false;
+        if (_isPointerDrag) return;
+        _document?.Unselect();
+        _document?.MoveCursor(((float)obj.OffsetX, (float)obj.OffsetY));
+        _canvasView?.Invalidate();
+    }
+
+    private void CanvasOnPointerMove(PointerEventArgs obj)
+    {
+        if (!_isPointerDown) return;
+        _isPointerDrag = Math.Abs(obj.OffsetX - _xStart) >= 5 || Math.Abs(obj.OffsetY - _yStart) >= 5;
+        if (!_isPointerDrag) return;
+        _document?.Unselect();
+        _document?.Select(((float)_xStart,(float) _yStart), ((float)obj.OffsetX, (float)obj.OffsetY));
+        _canvasView?.Invalidate();
     }
 
 }

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text;
 using SkiaSharp;
 
 namespace EditR.Models;
@@ -21,6 +22,10 @@ public class Document((float Width, float Height) canvas)
     private float _cursorSize;
 
     private bool _updatedPosition;
+
+    private int _startSelect;
+    private int _endSelect;
+    private bool _isSelected;
 
     /// <summary>
     ///     Updates the page 
@@ -182,6 +187,7 @@ public class Document((float Width, float Height) canvas)
         paint.Color = SKColors.Black;
         paint.IsAntialias = true;
         var fontIndex = -1;
+
         foreach (var character in _textBank)
         {
             textFont.Size = character.Size;
@@ -190,8 +196,15 @@ public class Document((float Width, float Height) canvas)
                 textFont.Typeface = fonts.GetValueOrDefault(fontIndex = character.FontIndex, SKTypeface.Default);
             }
 
+            if (character.IsSelected)
+            {
+                paint.Color = SKColor.Parse("#BAD3FD");
+                canvas.DrawRect(character.Column, character.Row, character.Width, -character.Height, paint);
+            }
+
             paint.Color = TextUtil.FindColor(_colors, character.Color);
-            canvas.DrawText(character.Value.ToString(), character.Column, character.Row, textFont, paint);
+            var c = character.Value.ToString();
+            canvas.DrawText(c, character.Column, character.Row, textFont, paint);
         }
     }
 
@@ -214,10 +227,37 @@ public class Document((float Width, float Height) canvas)
         _insertPos++;
         _updatedPosition = true;
     }
-
+    /// <summary>
+    ///     Moves the cursor position to the nearest character to a position.
+    /// </summary>
+    /// <param name="pos">A Tuple representing the coordinates of the position.</param>
     public void MoveCursor((float, float) pos)
     {
         _insertPos = _textBank.FindNearestChar(pos);
         _updatedPosition = true;
+    }
+    /// <summary>
+    ///     Selects characters within a range.
+    /// </summary>
+    /// <param name="start">A Tuple representing the coordinates of the start of the range.</param>
+    /// <param name="end">A Tuple representing the coordinates of the end of the range.</param>
+    public void Select((float, float) start, (float, float) end)
+    {
+        if(_textBank.TextCount == 0) return;
+        _isSelected = true;
+        (_startSelect, _endSelect) = start.Item1 < end.Item1 ? _textBank.FindRange(start, end) : _textBank.FindRange(end, start);
+    }
+    /// <summary>
+    ///     Unselects current selection of characters.
+    /// </summary>
+    public void Unselect()
+    {
+        if(_textBank.TextCount == 0 || !_isSelected) return;
+        for (var i = _startSelect; i <= _endSelect; i++)
+        {
+            var c = _textBank[i];
+            c.IsSelected = false;
+        }
+        _isSelected = false;
     }
 }
