@@ -87,7 +87,7 @@ public class Document((float Width, float Height) canvas)
         cursorPaint.Color = SKColors.Black;
         cursorPaint.StrokeWidth = 1.5f;
 
-        if (_textBank.TextCount == 0)
+        if (_textBank.Count == 0)
         {
             _cursorX = _center + leftMargin;
             _cursorY = _drawStartY + topMargin +
@@ -96,8 +96,8 @@ public class Document((float Width, float Height) canvas)
         }
         else if (_updatedPosition)
         {
-            var current = _textBank[Math.Min(_insertPos, _textBank.TextCount - 1)];
-            (_cursorX, _cursorY) = (_insertPos == _textBank.TextCount, current.Value == '\n') switch
+            var current = _textBank[Math.Min(_insertPos, _textBank.Count - 1)];
+            (_cursorX, _cursorY) = (_insertPos == _textBank.Count, current.Value == '\n') switch
             {
                 (true, false) => (current.Column + current.Width, current.Row),
                 (false, true) => (current.Column, current.Row),
@@ -169,7 +169,7 @@ public class Document((float Width, float Height) canvas)
     /// </summary>
     public void DeleteChar()
     {
-        if (_textBank.TextCount == 0 || _insertPos - 1 < 0) return;
+        if (_textBank.Count == 0 || _insertPos - 1 < 0) return;
         _textBank.Remove(--_insertPos);
         _updatedPosition = true;
     }
@@ -183,11 +183,10 @@ public class Document((float Width, float Height) canvas)
     {
         using var textFont = new SKFont();
         using var paint = new SKPaint();
-
         paint.Color = SKColors.Black;
         paint.IsAntialias = true;
         var fontIndex = -1;
-
+        var i = 0;
         foreach (var character in _textBank)
         {
             textFont.Size = character.Size;
@@ -195,16 +194,14 @@ public class Document((float Width, float Height) canvas)
             {
                 textFont.Typeface = fonts.GetValueOrDefault(fontIndex = character.FontIndex, SKTypeface.Default);
             }
-
-            if (character.IsSelected)
+            if (_isSelected && i >= _startSelect && i <= _endSelect)
             {
                 paint.Color = SKColor.Parse("#BAD3FD");
                 canvas.DrawRect(character.Column, character.Row, character.Width, -character.Height, paint);
             }
-
             paint.Color = TextUtil.FindColor(_colors, character.Color);
-            var c = character.Value.ToString();
-            canvas.DrawText(c, character.Column, character.Row, textFont, paint);
+            canvas.DrawText(character.Value.ToString(), character.Column, character.Row, textFont, paint);
+            i++;
         }
     }
 
@@ -223,7 +220,7 @@ public class Document((float Width, float Height) canvas)
     /// </summary>
     public void PanRight()
     {
-        if (_insertPos >= _textBank.TextCount) return;
+        if (_insertPos >= _textBank.Count) return;
         _insertPos++;
         _updatedPosition = true;
     }
@@ -233,7 +230,9 @@ public class Document((float Width, float Height) canvas)
     /// <param name="pos">A Tuple representing the coordinates of the position.</param>
     public void MoveCursor((float, float) pos)
     {
-        _insertPos = _textBank.FindNearestChar(pos);
+        var index = _textBank.FindNearestChar(pos);
+        if (index == -1) return;
+        _insertPos = index;
         _updatedPosition = true;
     }
     /// <summary>
@@ -241,23 +240,23 @@ public class Document((float Width, float Height) canvas)
     /// </summary>
     /// <param name="start">A Tuple representing the coordinates of the start of the range.</param>
     /// <param name="end">A Tuple representing the coordinates of the end of the range.</param>
-    public void Select((float, float) start, (float, float) end)
+    public void Select((float X, float Y) start, (float X, float Y) end)
     {
-        if(_textBank.TextCount == 0) return;
+        if(_textBank.Count == 0) return;
         _isSelected = true;
-        (_startSelect, _endSelect) = start.Item1 < end.Item1 ? _textBank.FindRange(start, end) : _textBank.FindRange(end, start);
+        (_startSelect, _endSelect) = _textBank.FindRange(start, end);
     }
     /// <summary>
     ///     Unselects current selection of characters.
     /// </summary>
     public void Unselect()
     {
-        if(_textBank.TextCount == 0 || !_isSelected) return;
-        for (var i = _startSelect; i <= _endSelect; i++)
-        {
-            var c = _textBank[i];
-            c.IsSelected = false;
-        }
+        // if(_textBank.Count == 0 || !_isSelected) return;
+        // for (var i = _startSelect; i <= _endSelect; i++)
+        // {
+        //     var c = _textBank[i];
+        //     c.IsSelected = false;
+        // }
         _isSelected = false;
     }
 }

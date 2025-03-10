@@ -2,6 +2,7 @@ using System.Collections;
 using System.Text;
 using EditR.Models.RBList;
 using LanguageExt;
+using Microsoft.VisualBasic;
 using MudBlazor;
 
 namespace EditR.Models;
@@ -19,7 +20,8 @@ public class TextBank : IEnumerable<StyledChar>
     private float _rStart;
     private (float Start, float End) _x;
     private (float Start, float Height, float THeight) _y;
-    public int TextCount => _charList.Count;
+    public int Count => _charList.Count;
+
     public int PageNum { get; private set; }
 
     public StyledChar this[int i] => _charList[i];
@@ -34,8 +36,9 @@ public class TextBank : IEnumerable<StyledChar>
         var pNum = 0;
         var rStart = _rStart;
         var rEnd = _offsetHeight - _bottomMargin;
-        foreach (var item in _charList)
+        for (var i = 0; i < _charList.Count; i++)
         {
+            var item = _charList[i];
             if (cRow != item.RowNum)
             {
                 if (!_fontsByRow.TryGetValue(++cRow, out var rowInfo))
@@ -52,6 +55,9 @@ public class TextBank : IEnumerable<StyledChar>
                     rEnd = _offsetHeight + pStart - _bottomMargin;
                     rStart = _rStart + pStart + rowInfo.Height;
                 }
+
+                rowInfo.RowStart = rStart;
+                rowInfo.Index = i;
             }
 
             item.Row = rStart;
@@ -126,24 +132,20 @@ public class TextBank : IEnumerable<StyledChar>
     /// <returns>An int representing the index of the nearest character to the origin point.</returns>
     public int FindNearestChar((float X, float Y) pos)
     {
-        var result = 0;
-        var textCount = _charList.Count - 1;
-        var rowDist = float.MaxValue;
-        var columnDist = float.MaxValue;
-        var rowNum = -1;
-        var i = 0;
-        for (i = 0; i < _charList.Count; i++)
+        var minDist = float.MaxValue;
+        var start = 0;
+        for (var i = 0; i < _fontsByRow.Count; i++)
         {
-            var c = _charList[i];
-            TextUtil.CheckDist((columnDist, rowDist), (rowNum, c.RowNum), pos, (c.Column, c.Row), (i, result), false).Match(
-                value => (columnDist, rowDist, rowNum, result) = value, () => { i = _charList.Count; });
-            if (result == textCount && Math.Abs(pos.X - (c.Column + c.Width)) < Math.Abs(pos.X - c.Column))
-            {
-                result++;
-            }
+            var info = _fontsByRow[i];
+            var r = TextUtil.CalcDist(pos.Y, info.RowStart, minDist).Case;
+            if (r is not float f) break;
+            minDist = f;
+            start = info.Index;
         }
-        return result;
+
+        return TextUtil.FindFromStart(start, pos.X, _charList);
     }
+
     /// <summary>
     ///     Finds and selects the character within a range.
     /// </summary>
@@ -152,30 +154,30 @@ public class TextBank : IEnumerable<StyledChar>
     /// <returns>A Tuple with 2 integers representing the character indices nearest to start and end of the range.</returns>
     public (int, int) FindRange((float X, float Y) start, (float X, float Y) end)
     {
-        var (startRowDist, startColDist) = (float.MaxValue, float.MaxValue);
-        var (endRowDist, endColDist) = (float.MaxValue, float.MaxValue);
-
-        var (startRow, endRow) = (-1, -1);
-        var (startId, endId) = (0, 0);
-        var i = 0;
-        for (i = 0; i < _charList.Count; i++)
+        var (startMin, endMin) = (float.MaxValue, float.MaxValue);
+        var (foundStart, foundEnd) = (false, false);
+        var (startI, endI) = (0, 0);
+        
+        for (var i = 0; i < _fontsByRow.Count && !(foundStart && foundEnd); i++)
         {
-            var c = _charList[i];
-            var pt = (c.Column, c.Row);
-            TextUtil.CheckDist((endColDist, endRowDist), (endRow, c.RowNum),
-                    end, pt, (i, endId))
-                .Match(
-                    value =>
-                        (endColDist, endRowDist, endRow, endId) = value,
-                    () => { i = _charList.Count; });
-            TextUtil.CheckDist((startColDist, startRowDist), (startRow, c.RowNum),
-                    start, pt, (i, startId))
-                .Match(value => { (startColDist, startRowDist, startRow, startId) = value; }, () =>
-                {
-                    if (i != _charList.Count) c.IsSelected = true;
-                });
+            var info = _fontsByRow[i];
+            if (!foundStart)
+            {
+                (foundStart, startMin, startI) = TextUtil.CalcDist(start.Y, info.RowStart, startMin)
+                    .Match(f => (false, f, info.Index), (true, startMin, startI));
+            }
+            
+            if (!foundEnd)
+            {
+                (foundEnd, endMin, endI) = TextUtil.CalcDist(end.Y, info.RowStart, endMin)
+                    .Match(f => (false, f, info.Index), (true, endMin, endI));
+            }
         }
-        _charList[startId].IsSelected = true;
-        return (startId, endId);
+
+        var result = (TextUtil.FindFromStart(startI, start.X, _charList),
+            TextUtil.FindFromStart(endI, end.X, _charList));
+       
+        return startI == endI && end.X < start.X ? result.Map((a, b) => (b, a)) : result;
+        
     }
 }

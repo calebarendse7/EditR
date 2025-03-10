@@ -124,7 +124,7 @@
     {
         if (!_isPointerDown) return;
         _isPointerDrag = Math.Abs(obj.OffsetX - _xStart) >= 5 || Math.Abs(obj.OffsetY - _yStart) >= 5;
-        if (!_isPointerDrag) return;
+        if (!_isPointerDrag) return; 
         _document?.Unselect();
         _document?.Select(((float)_xStart,(float) _yStart), ((float)obj.OffsetX, (float)obj.OffsetY));
         _canvasView?.Invalidate();

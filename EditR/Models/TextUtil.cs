@@ -141,7 +141,12 @@ public static class TextUtil
             column += c.Width;
         }
     }
-
+    /// <summary>
+    ///     Finds a color in a list of colors given a key.
+    /// </summary>
+    /// <param name="colors">A Dictionary of colors mapped to strings to search.</param>
+    /// <param name="color">A string representing the key to search for.</param>
+    /// <returns>An SKColor representing the color found.</returns>
     public static SKColor FindColor(Dictionary<string, SKColor> colors, string color)
     {
         if (colors.TryGetValue(color, out var c)) return c;
@@ -149,21 +154,41 @@ public static class TextUtil
         colors[color] = result;
         return result;
     }
-    
-    public static Option<(float, float, int, int)> CheckDist((float Col, float Row) delta, (int Current, int Test) row,
-        (float X, float Y) origin, (float X, float Y) point, (int I, int C) indices, bool exitEarly = true)
+    /// <summary>
+    ///     Calculates one component of Manhattan distance.
+    /// </summary>
+    /// <param name="pointOne">A float representing the first point's first component.</param>
+    /// <param name="pointTwo">A float representing the second point's first component.</param>
+    /// <param name="minDist">A float representing the last calculated distance.</param>
+    /// <returns></returns>
+    public static Option<float> CalcDist(float pointOne, float pointTwo, float minDist)
     {
-        if (row.Current != row.Test)
-        {
-            var nearestRow = Math.Abs(origin.Y - point.Y);
-            return nearestRow < delta.Row
-                ? (Math.Abs(origin.X - point.X), nearestRow, row.Test, indices.I)
-                : Option<(float, float, int, int)>.None;
-        }
-
-        var nearestColumn = Math.Abs(origin.X - point.X);
-        if (nearestColumn < delta.Col)
-             return (nearestColumn, delta.Row, row.Current, indices.I);
-        return exitEarly ? Option<(float, float, int, int)>.None : (delta.Col, delta.Row, row.Current, indices.C);
+        var dist = Math.Abs(pointTwo - pointOne);
+        return dist < minDist ?  Option<float>.Some(dist) : Option<float>.None;
     }
+    /// <summary>
+    ///     Finds the nearest char to a point from position in a list.
+    /// </summary>
+    /// <param name="start">An int representing the starting position.</param>
+    /// <param name="origin">A float representing the starting point.</param>
+    /// <param name="charList">An RbList of StyledChar representing the list to search.</param>
+    /// <returns>An int representing the index of the nearest char.</returns>
+    public static int FindFromStart(int start, float origin, RbList<StyledChar> charList)
+    {
+        var minDist = float.MaxValue;
+        var result = -1;
+        for (var i = start; i < charList.Count; i++)
+        {
+            var c = charList[i];
+            var r = CalcDist(origin, c.Column, minDist).Case;
+            if (r is not float f) break;
+            (minDist, result) = (f, i);
+            if (result == charList.Count - 1 && Math.Abs(origin - (c.Column + c.Width)) < minDist)
+            {
+                result++;
+            }
+        }
+        return result;
+    }
+    
 }
