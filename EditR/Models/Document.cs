@@ -1,5 +1,4 @@
 using System.Collections.Immutable;
-using System.Text;
 using SkiaSharp;
 
 namespace EditR.Models;
@@ -7,28 +6,27 @@ namespace EditR.Models;
 public class Document((float Width, float Height) canvas)
 {
     private const float TabWidth = 0.5f * 96;
-    private readonly float _cHeight = canvas.Height;
     private readonly float _cCenter = canvas.Width / 2;
-    private readonly TextBank _textBank = [];
+    private readonly float _cHeight = canvas.Height;
     private readonly Dictionary<string, SKColor> _colors = [];
-    private float _center;
-    private float _pTotalHeight;
-    private float _drawStartY;
+    private readonly TextBank _textBank = [];
     private float _cBottom;
-    private int _insertPos;
+    private float _center;
+    private float _cursorSize;
 
     private float _cursorX;
     private float _cursorY;
-    private float _cursorSize;
-
-    private bool _updatedPosition;
-
-    private int _startSelect;
+    private float _drawStartY;
     private int _endSelect;
+    private int _insertPos;
+
+    private bool _isPositionChanged;
     private bool _isSelected;
+    private float _pTotalHeight;
+    private int _startSelect;
 
     /// <summary>
-    ///     Updates the page 
+    ///     Updates the page
     /// </summary>
     /// <param name="info">A DocumentInfo representing the dimensions of the page.</param>
     public void UpdateSettings(PageInfo info)
@@ -82,33 +80,42 @@ public class Document((float Width, float Height) canvas)
     public void DrawCursor(SKCanvas canvas, float topMargin, float leftMargin, float pxSize, float lineSpace,
         SKTypeface typeface)
     {
+        if (_isSelected) return;
         using var cursorPaint = new SKPaint();
         cursorPaint.IsAntialias = true;
         cursorPaint.Color = SKColors.Black;
         cursorPaint.StrokeWidth = 1.5f;
 
-        if (_textBank.Count == 0)
+        if (_textBank.IsEmpty())
         {
             _cursorX = _center + leftMargin;
             _cursorY = _drawStartY + topMargin +
                        TextUtil.LineHeight(new SKFont(typeface, pxSize).Metrics) * lineSpace;
             _cursorSize = pxSize;
         }
-        else if (_updatedPosition)
+        else if (_isPositionChanged)
         {
-            var current = _textBank[Math.Min(_insertPos, _textBank.Count - 1)];
-            (_cursorX, _cursorY) = (_insertPos == _textBank.Count, current.Value == '\n') switch
+            var i = Math.Min(_insertPos, _textBank.Count - 1);
+            var current = _textBank[i];
+            if (current.Case is StyledChar c)
             {
-                (true, false) => (current.Column + current.Width, current.Row),
-                (false, true) => (current.Column, current.Row),
-                (true, true) => (_center + leftMargin, current.Row + current.Height * lineSpace),
-                (false, false) => (current.Column, current.Row),
-            };
-            _cursorSize = current.Size;
+                (_cursorX, _cursorY) = (_insertPos == _textBank.Count, c.Value == '\n') switch
+                {
+                    (true, false) => (c.Column + c.Width, c.Row),
+                    (false, true) => (c.Column, c.Row),
+                    (true, true) => (_center + leftMargin, c.Row + c.Height * lineSpace),
+                    (false, false) => (c.Column, c.Row)
+                };
+                _cursorSize = c.Size;
+            }
+            else
+            {
+                Console.Error.WriteLine($"Document:DrawCursor: Could not find {i}");
+            }
         }
 
         canvas.DrawLine(_cursorX, _cursorY - _cursorSize, _cursorX, _cursorY, cursorPaint);
-        _updatedPosition = false;
+        _isPositionChanged = false;
     }
 
     /// <summary>
@@ -126,7 +133,7 @@ public class Document((float Width, float Height) canvas)
         else if (_drawStartY + (_textBank.PageNum + 1) * _pTotalHeight < _cBottom)
             _drawStartY = _cBottom - (_textBank.PageNum + 1) * _pTotalHeight;
         _textBank.SetOffset(_drawStartY);
-        _updatedPosition = true;
+        _isPositionChanged = true;
     }
 
     /// <summary>
@@ -137,12 +144,19 @@ public class Document((float Width, float Height) canvas)
     /// <param name="typeface">An SKTypeface representing the selected typeface.</param>
     public void AddChar(char character, PageInfo pageInfo, SKTypeface typeface)
     {
+        if (_isSelected)
+        {
+            _insertPos = _textBank.RemoveSelection((_startSelect, _endSelect));
+            _isSelected = false;
+        }
+
         using var textPaint = new SKFont();
         textPaint.Size = pageInfo.PixelSize;
         textPaint.Typeface = typeface;
 
         float width = 0;
         var color = "#00000000";
+
         if (character == '\t')
         {
             width = TabWidth;
@@ -155,13 +169,16 @@ public class Document((float Width, float Height) canvas)
 
         _textBank.Add(new StyledChar
         {
-            Value = character, FontIndex = pageInfo.SelectedFont.Index, Width = width,
+            Value = character,
+            FontIndex = pageInfo.SelectedFont.Index,
+            Width = width,
             Height = TextUtil.LineHeight(textPaint.Metrics),
-            Padding = textPaint.Metrics.Descent + textPaint.Metrics.Leading, Size = pageInfo.PixelSize,
+            Padding = textPaint.Metrics.Descent + textPaint.Metrics.Leading,
+            Size = pageInfo.PixelSize,
             PtSize = pageInfo.PointSize,
             Color = color
         }, _insertPos++);
-        _updatedPosition = true;
+        _isPositionChanged = true;
     }
 
     /// <summary>
@@ -170,35 +187,46 @@ public class Document((float Width, float Height) canvas)
     public void DeleteChar()
     {
         if (_textBank.Count == 0 || _insertPos - 1 < 0) return;
-        _textBank.Remove(--_insertPos);
-        _updatedPosition = true;
+        if (_isSelected)
+        {
+            _insertPos = _textBank.RemoveSelection((_startSelect, _endSelect));
+            _isSelected = false;
+        }
+        else
+        {
+            _textBank.RemoveSingle(--_insertPos);
+        }
+
+        _isPositionChanged = true;
     }
 
     /// <summary>
     ///     Draws the document's characters to the canvas.
     /// </summary>
-    /// <param name="canvas">The canvas where the characters are drawn.</param>
-    /// <param name="fonts">A Dictionary representing the family name of the font.</param>
-    public void DrawCharacters(SKCanvas canvas, ImmutableDictionary<int, SKTypeface> fonts)
+    /// <param name="canvas">The canvas where the characters are drawn. </param>
+    /// <param name="currFontIndex">An int representing the index of the selected font. </param>
+    /// <param name="fonts">A Dictionary representing the family name of the font. </param>
+    public void DrawCharacters(SKCanvas canvas, int currFontIndex, ImmutableDictionary<int, SKTypeface> fonts)
     {
         using var textFont = new SKFont();
         using var paint = new SKPaint();
         paint.Color = SKColors.Black;
         paint.IsAntialias = true;
-        var fontIndex = -1;
+        var fIndex = -1;
         var i = 0;
         foreach (var character in _textBank)
         {
             textFont.Size = character.Size;
-            if (fontIndex != character.FontIndex)
-            {
-                textFont.Typeface = fonts.GetValueOrDefault(fontIndex = character.FontIndex, SKTypeface.Default);
-            }
             if (_isSelected && i >= _startSelect && i <= _endSelect)
             {
                 paint.Color = SKColor.Parse("#BAD3FD");
                 canvas.DrawRect(character.Column, character.Row, character.Width, -character.Height, paint);
+                character.FontIndex = currFontIndex;
             }
+
+            if (fIndex != character.FontIndex)
+                textFont.Typeface = fonts.GetValueOrDefault(fIndex = character.FontIndex, SKTypeface.Default);
+
             paint.Color = TextUtil.FindColor(_colors, character.Color);
             canvas.DrawText(character.Value.ToString(), character.Column, character.Row, textFont, paint);
             i++;
@@ -212,7 +240,7 @@ public class Document((float Width, float Height) canvas)
     {
         if (_insertPos <= 0) return;
         _insertPos--;
-        _updatedPosition = true;
+        _isPositionChanged = true;
     }
 
     /// <summary>
@@ -222,19 +250,20 @@ public class Document((float Width, float Height) canvas)
     {
         if (_insertPos >= _textBank.Count) return;
         _insertPos++;
-        _updatedPosition = true;
+        _isPositionChanged = true;
     }
+
     /// <summary>
     ///     Moves the cursor position to the nearest character to a position.
     /// </summary>
     /// <param name="pos">A Tuple representing the coordinates of the position.</param>
     public void MoveCursor((float, float) pos)
     {
-        var index = _textBank.FindNearestChar(pos);
-        if (index == -1) return;
-        _insertPos = index;
-        _updatedPosition = true;
+        if (_textBank.IsEmpty()) return;
+        _insertPos = _textBank.FindNearestChar(pos);
+        _isPositionChanged = true;
     }
+
     /// <summary>
     ///     Selects characters within a range.
     /// </summary>
@@ -242,21 +271,16 @@ public class Document((float Width, float Height) canvas)
     /// <param name="end">A Tuple representing the coordinates of the end of the range.</param>
     public void Select((float X, float Y) start, (float X, float Y) end)
     {
-        if(_textBank.Count == 0) return;
+        if (_textBank.IsEmpty()) return;
         _isSelected = true;
         (_startSelect, _endSelect) = _textBank.FindRange(start, end);
     }
+
     /// <summary>
     ///     Unselects current selection of characters.
     /// </summary>
     public void Unselect()
     {
-        // if(_textBank.Count == 0 || !_isSelected) return;
-        // for (var i = _startSelect; i <= _endSelect; i++)
-        // {
-        //     var c = _textBank[i];
-        //     c.IsSelected = false;
-        // }
         _isSelected = false;
     }
 }

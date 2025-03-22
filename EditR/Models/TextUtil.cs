@@ -1,5 +1,4 @@
 using EditR.Models.RBList;
-using LanguageExt;
 using SkiaSharp;
 
 namespace EditR.Models;
@@ -35,7 +34,10 @@ public static class TextUtil
         metric.Quantity--;
         if (metric.Quantity != 0) return;
         value.SizeByMetric.Remove(size);
-        Update(fontsByRow, value, rowNum, 1.15f);
+        if (value.SizeByMetric.Count == 0)
+            fontsByRow.Remove(rowNum);
+        else
+            Update(fontsByRow, value, rowNum, 1.15f);
     }
 
     /// <summary>
@@ -106,15 +108,22 @@ public static class TextUtil
         var isNextLine = false;
         if (index > 0)
         {
-            var r = charList[index - 1];
-            rowNumber = r.RowNum;
-            column = r.Column + r.Width;
-            isNextLine = r.Value == '\n';
+            var r = charList.TryGetValue(index - 1);
+            if (r.Case is not StyledChar c)
+            {
+                Console.Error.WriteLine("TextUtil:UpdateFrom: Could not find previous character.");
+                return;
+            }
+
+            rowNumber = c.RowNum;
+            column = c.Column + c.Width;
+            isNextLine = c.Value == '\n';
         }
 
         for (var i = index; i < charList.Count; i++)
         {
-            var c = charList[i];
+            var result = charList.TryGetValue(i);
+            if (result.Case is not StyledChar c) break;
             if (column + c.Width > x.End || isNextLine)
             {
                 column = x.Start;
@@ -141,6 +150,7 @@ public static class TextUtil
             column += c.Width;
         }
     }
+
     /// <summary>
     ///     Finds a color in a list of colors given a key.
     /// </summary>
@@ -154,41 +164,62 @@ public static class TextUtil
         colors[color] = result;
         return result;
     }
+
     /// <summary>
     ///     Calculates one component of Manhattan distance.
     /// </summary>
     /// <param name="pointOne">A float representing the first point's first component.</param>
     /// <param name="pointTwo">A float representing the second point's first component.</param>
-    /// <param name="minDist">A float representing the last calculated distance.</param>
-    /// <returns></returns>
-    public static Option<float> CalcDist(float pointOne, float pointTwo, float minDist)
+    /// <returns>A float representing the manhattan distance. </returns>
+    private static float ManDist(float pointOne, float pointTwo)
     {
-        var dist = Math.Abs(pointTwo - pointOne);
-        return dist < minDist ?  Option<float>.Some(dist) : Option<float>.None;
+        return Math.Abs(pointTwo - pointOne);
     }
+
     /// <summary>
     ///     Finds the nearest char to a point from position in a list.
     /// </summary>
-    /// <param name="start">An int representing the starting position.</param>
-    /// <param name="origin">A float representing the starting point.</param>
+    /// <param name="point">An int representing the starting position.</param>
+    /// <param name="infoByRow">
+    ///     A dictionary representing each font size by quantity, sorted in descending order, for each
+    ///     row.
+    /// </param>
     /// <param name="charList">An RbList of StyledChar representing the list to search.</param>
+    /// <param name="nearStart">A bool indicating if the char should be found near the start X value.  </param>
     /// <returns>An int representing the index of the nearest char.</returns>
-    public static int FindFromStart(int start, float origin, RbList<StyledChar> charList)
+    public static int NearestCharIndex((float X, float Y) point, Dictionary<int, RowInfo> infoByRow,
+        RbList<StyledChar> charList, bool nearStart = false)
     {
         var minDist = float.MaxValue;
+        var row = -1;
         var result = -1;
-        for (var i = start; i < charList.Count; i++)
+        for (var i = 0; i < infoByRow.Count; i++)
         {
-            var c = charList[i];
-            var r = CalcDist(origin, c.Column, minDist).Case;
-            if (r is not float f) break;
-            (minDist, result) = (f, i);
-            if (result == charList.Count - 1 && Math.Abs(origin - (c.Column + c.Width)) < minDist)
-            {
-                result++;
-            }
+            var info = infoByRow[i];
+            var r = ManDist(point.Y, info.RowStart);
+            if (r > minDist) break;
+            minDist = r;
+            row = info.Index;
         }
+
+        minDist = float.MaxValue;
+        for (var i = row; i < charList.Count; i++)
+        {
+            var value = charList.TryGetValue(i);
+            if (value.Case is not StyledChar c)
+            {
+                Console.Error.WriteLine($"TextUtil:NearestCharIndex: Could not find char from row index {i}.");
+                break;
+            }
+
+            var total = c.Column + c.Width;
+            var dist = ManDist(point.X, nearStart ? c.Column : total);
+            if (dist > minDist) break;
+            result = i;
+            minDist = dist;
+            if (nearStart && dist > ManDist(point.X, total)) result++;
+        }
+
         return result;
     }
-    
 }

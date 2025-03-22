@@ -8,7 +8,11 @@ body {
     overflow: hidden;
 }
 
-body, #app, div.mud-layout, div.mud-main-content, #document-interface {
+body,
+#app,
+div.mud-layout,
+div.mud-main-content,
+#document-interface {
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -38,7 +42,6 @@ canvas:hover {
 }
 
 .document-menu-group {
-    max-width: 600px;
     background-color: lightgray;
     border-radius: 500px;
     padding: 20px;
@@ -56,7 +59,11 @@ canvas:hover {
 }
 
 #document-menu .mud-select {
-    flex: 1;
+    width: 100px;
+}
+
+#document-menu .mud-input-control {
+    width: 100px;
 }
 
 #document-color-picker {
@@ -68,5 +75,3 @@ canvas:hover {
     height: 1.5em;
     border-radius: 4px;
 }
-
-

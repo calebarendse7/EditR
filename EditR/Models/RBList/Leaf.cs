@@ -1,6 +1,6 @@
 namespace EditR.Models.RBList;
 
-public sealed record Leaf<T> : Child<T>
+public sealed record Leaf<T> : Child
 {
     private static readonly Leaf<T> Instance = new();
 
@@ -8,5 +8,5 @@ public sealed record Leaf<T> : Child<T>
     {
     }
 
-    public static Child<T> Empty => Instance;
+    public static Child Empty => Instance;
 }

@@ -1,9 +1,6 @@
 using System.Collections;
-using System.Text;
 using EditR.Models.RBList;
 using LanguageExt;
-using Microsoft.VisualBasic;
-using MudBlazor;
 
 namespace EditR.Models;
 
@@ -24,7 +21,7 @@ public class TextBank : IEnumerable<StyledChar>
 
     public int PageNum { get; private set; }
 
-    public StyledChar this[int i] => _charList[i];
+    public Option<StyledChar> this[int i] => _charList.TryGetValue(i);
 
     /// <summary>
     ///     Returns an enumerator that iterates through the collection.
@@ -38,7 +35,13 @@ public class TextBank : IEnumerable<StyledChar>
         var rEnd = _offsetHeight - _bottomMargin;
         for (var i = 0; i < _charList.Count; i++)
         {
-            var item = _charList[i];
+            var value = _charList.TryGetValue(i);
+            if (value.Case is not StyledChar item)
+            {
+                Console.Error.WriteLine($"TextBank:GetEnumerator: Could find {i}");
+                break;
+            }
+
             if (cRow != item.RowNum)
             {
                 if (!_fontsByRow.TryGetValue(++cRow, out var rowInfo))
@@ -107,9 +110,15 @@ public class TextBank : IEnumerable<StyledChar>
     /// <summary>
     ///     Removes the last added character from the text bank.
     /// </summary>
-    public void Remove(int charIndex)
+    public void RemoveSingle(int charIndex)
     {
-        var toRemove = _charList[charIndex];
+        var value = _charList.TryGetValue(charIndex);
+        if (value.Case is not StyledChar toRemove)
+        {
+            Console.Error.WriteLine($"TextBank:RemoveSingle: Could not remove single {charIndex}");
+            return;
+        }
+
         _charList.RemoveAt(charIndex);
         TextUtil.ReduceQuantity(_fontsByRow, toRemove.RowNum, toRemove.PtSize);
         if (_charList.Count > 0) TextUtil.UpdateFrom(_charList, _fontsByRow, _x, charIndex - 1);
@@ -132,52 +141,58 @@ public class TextBank : IEnumerable<StyledChar>
     /// <returns>An int representing the index of the nearest character to the origin point.</returns>
     public int FindNearestChar((float X, float Y) pos)
     {
-        var minDist = float.MaxValue;
-        var start = 0;
-        for (var i = 0; i < _fontsByRow.Count; i++)
-        {
-            var info = _fontsByRow[i];
-            var r = TextUtil.CalcDist(pos.Y, info.RowStart, minDist).Case;
-            if (r is not float f) break;
-            minDist = f;
-            start = info.Index;
-        }
-
-        return TextUtil.FindFromStart(start, pos.X, _charList);
+        return TextUtil.NearestCharIndex(pos, _fontsByRow, _charList, true);
     }
 
     /// <summary>
     ///     Finds and selects the character within a range.
     /// </summary>
-    /// <param name="start">A Tuple representing the coordinates of the start of the range.</param>
-    /// <param name="end">A Tuple representing the coordinates of the end of the range.</param>
-    /// <returns>A Tuple with 2 integers representing the character indices nearest to start and end of the range.</returns>
-    public (int, int) FindRange((float X, float Y) start, (float X, float Y) end)
+    /// <param name="pointOne">A Tuple representing a point. </param>
+    /// <param name="pointTwo">A Tuple representing a point. </param>
+    /// <returns>A Tuple with 2 integers representing the character indices nearest each of the points.</returns>
+    public (int, int) FindRange((float X, float Y) pointOne, (float X, float Y) pointTwo)
     {
-        var (startMin, endMin) = (float.MaxValue, float.MaxValue);
-        var (foundStart, foundEnd) = (false, false);
-        var (startI, endI) = (0, 0);
-        
-        for (var i = 0; i < _fontsByRow.Count && !(foundStart && foundEnd); i++)
+        var (a, b) = (pointOne.Y <= pointTwo.Y) switch
         {
-            var info = _fontsByRow[i];
-            if (!foundStart)
+            true => (TextUtil.NearestCharIndex(pointOne, _fontsByRow, _charList),
+                TextUtil.NearestCharIndex(pointTwo, _fontsByRow, _charList)),
+
+            false => (TextUtil.NearestCharIndex(pointTwo, _fontsByRow, _charList),
+                TextUtil.NearestCharIndex(pointOne, _fontsByRow, _charList))
+        };
+        return a < b ? (a, b) : (b, a);
+    }
+
+    /// <summary>
+    ///     Removes characters within a given range.
+    /// </summary>
+    /// <param name="selection">A tuple of two integers representing the range. </param>
+    /// <returns>An int representing the start of the range. </returns>
+    public int RemoveSelection((int Start, int End) selection)
+    {
+        for (var i = Math.Min(selection.End, _charList.Count - 1); i >= selection.Start; i--)
+        {
+            var value = _charList.TryGetValue(i);
+            if (value.Case is not StyledChar toRemove)
             {
-                (foundStart, startMin, startI) = TextUtil.CalcDist(start.Y, info.RowStart, startMin)
-                    .Match(f => (false, f, info.Index), (true, startMin, startI));
+                Console.Error.WriteLine($"TextBank:RemoveSelection: Could not remove selection {i}");
+                break;
             }
-            
-            if (!foundEnd)
-            {
-                (foundEnd, endMin, endI) = TextUtil.CalcDist(end.Y, info.RowStart, endMin)
-                    .Match(f => (false, f, info.Index), (true, endMin, endI));
-            }
+
+            _charList.RemoveAt(i);
+            TextUtil.ReduceQuantity(_fontsByRow, toRemove.RowNum, toRemove.PtSize);
         }
 
-        var result = (TextUtil.FindFromStart(startI, start.X, _charList),
-            TextUtil.FindFromStart(endI, end.X, _charList));
-       
-        return startI == endI && end.X < start.X ? result.Map((a, b) => (b, a)) : result;
-        
+        if (_charList.Count > 0) TextUtil.UpdateFrom(_charList, _fontsByRow, _x, selection.Start);
+        return selection.Start;
+    }
+
+    /// <summary>
+    ///     Check if the TextBank is empty.
+    /// </summary>
+    /// <returns>A bool representing if the TextBank is empty. </returns>
+    public bool IsEmpty()
+    {
+        return _charList.Count == 0 && _fontsByRow.Count == 0;
     }
 }

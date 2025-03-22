@@ -50,7 +50,10 @@
     [Parameter] public EventCallback<FontSelectRow> FontValueChanged { get; set; }
     private bool _isPickerShown;
 
-    private void ToggleColorPicker() => _isPickerShown = !_isPickerShown;
+    private void ToggleColorPicker()
+    {
+        _isPickerShown = !_isPickerShown;
+    }
 
     private void OnSizeChanged(int value)
     {

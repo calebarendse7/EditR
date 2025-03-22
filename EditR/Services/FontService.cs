@@ -15,6 +15,13 @@ public class FontService(HttpClient client) : IFontService
         _fonts = _fonts.Add(fontIndex, t);
     }
 
-    public ImmutableDictionary<int, SKTypeface> GetAllFonts() => _fonts;
-    public SKTypeface GetFont(int fontIndex) => _fonts[fontIndex];
+    public ImmutableDictionary<int, SKTypeface> GetAllFonts()
+    {
+        return _fonts;
+    }
+
+    public SKTypeface GetFont(int fontIndex)
+    {
+        return _fonts[fontIndex];
+    }
 }

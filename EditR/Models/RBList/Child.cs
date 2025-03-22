@@ -1,3 +1,3 @@
 namespace EditR.Models.RBList;
 
-public abstract record Child<T>;
+public abstract record Child;

@@ -1,7 +1,7 @@
 namespace EditR.Models.RBList;
 
-public sealed record Node<T>(Colors Color, Child<T> Left, T Data, Child<T> Right)
-    : Child<T>
+public sealed record Node<T>(Colors Color, Child Left, T Data, Child Right)
+    : Child
 {
     public int SubtreeCount { get; } = (Left, Right) switch
     {
