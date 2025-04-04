@@ -1,13 +1,13 @@
-using System.Collections;
 using EditR.Models.RBList;
 using LanguageExt;
+using LanguageExt.Common;
 
 namespace EditR.Models;
 
 /// <summary>
 ///     Represents collection of characters.
 /// </summary>
-public class TextBank : IEnumerable<StyledChar>
+public class TextBank
 {
     private readonly RbList<StyledChar> _charList = [];
     private readonly Dictionary<int, RowInfo> _fontsByRow = [];
@@ -17,65 +17,62 @@ public class TextBank : IEnumerable<StyledChar>
     private float _rStart;
     private (float Start, float End) _x;
     private (float Start, float Height, float THeight) _y;
+
+    private int _lastChangedIndex;
+
     public int Count => _charList.Count;
 
     public int PageNum { get; private set; }
 
     public Option<StyledChar> this[int i] => _charList.TryGetValue(i);
 
-    /// <summary>
-    ///     Returns an enumerator that iterates through the collection.
-    /// </summary>
-    /// <returns>An enumerator that can be used to iterate through the collection.</returns>
-    public IEnumerator<StyledChar> GetEnumerator()
+    public void Each(Action<StyledChar, RowInfo, int> action)
     {
+        if (_charList.Count == 0) return;
         var cRow = -1;
         var pNum = 0;
-        var rStart = _rStart;
+        var rStartOffset = _rStart;
         var rEnd = _offsetHeight - _bottomMargin;
+
+        RowInfo? rowInfo = null;
         for (var i = 0; i < _charList.Count; i++)
         {
             var value = _charList.TryGetValue(i);
             if (value.Case is not StyledChar item)
             {
-                Console.Error.WriteLine($"TextBank:GetEnumerator: Could find {i}");
+                Console.Error.WriteLine($"TextBank:Each: Could find {i}");
                 break;
             }
 
-            if (cRow != item.RowNum)
+            if (cRow == item.RowNum && rowInfo is not null)
             {
-                if (!_fontsByRow.TryGetValue(++cRow, out var rowInfo))
-                {
-                    Console.WriteLine($"Row height not found {cRow}");
-                    break;
-                }
-
-                rStart += rowInfo.Height;
-                if (rStart > rEnd)
-                {
-                    pNum++;
-                    var pStart = _y.THeight * pNum;
-                    rEnd = _offsetHeight + pStart - _bottomMargin;
-                    rStart = _rStart + pStart + rowInfo.Height;
-                }
-
-                rowInfo.RowStart = rStart;
-                rowInfo.Index = i;
+                action(item, rowInfo, i);
+                continue;
             }
 
-            item.Row = rStart;
-            yield return item;
+            if (!_fontsByRow.TryGetValue(++cRow, out rowInfo))
+            {
+                Console.Error.WriteLine(
+                    $"TextBank:Each: Row info not found for {cRow}. ({string.Join(" ", _fontsByRow)})");
+                break;
+            }
+
+            rStartOffset += rowInfo.Height;
+            if (rStartOffset > rEnd)
+            {
+                pNum++;
+                var pStart = _y.THeight * pNum;
+                rEnd = _offsetHeight + pStart - _bottomMargin;
+                rStartOffset = _rStart + pStart + rowInfo.Height;
+
+            }
+
+            rowInfo.RowOffset = rStartOffset;
+            rowInfo.Start = i;
+            action(item, rowInfo, i);
         }
 
         PageNum = pNum;
-    }
-
-    /// <summary>
-    /// </summary>
-    /// <returns></returns>
-    IEnumerator IEnumerable.GetEnumerator()
-    {
-        return GetEnumerator();
     }
 
     /// <summary>
@@ -104,7 +101,8 @@ public class TextBank : IEnumerable<StyledChar>
     public void Add(StyledChar item, int charPosition)
     {
         _charList.Insert(charPosition, item);
-        TextUtil.UpdateFrom(_charList, _fontsByRow, _x, charPosition);
+        _lastChangedIndex = charPosition;
+        //TextUtil.UpdateFrom(_charList, _fontsByRow, _x, charPosition);
     }
 
     /// <summary>
@@ -112,16 +110,10 @@ public class TextBank : IEnumerable<StyledChar>
     /// </summary>
     public void RemoveSingle(int charIndex)
     {
-        var value = _charList.TryGetValue(charIndex);
-        if (value.Case is not StyledChar toRemove)
+        TextUtil.RemoveChar(_charList, _fontsByRow, charIndex).Match(_ =>
         {
-            Console.Error.WriteLine($"TextBank:RemoveSingle: Could not remove single {charIndex}");
-            return;
-        }
-
-        _charList.RemoveAt(charIndex);
-        TextUtil.ReduceQuantity(_fontsByRow, toRemove.RowNum, toRemove.PtSize);
-        if (_charList.Count > 0) TextUtil.UpdateFrom(_charList, _fontsByRow, _x, charIndex - 1);
+            if (_charList.Count > 0) TextUtil.UpdateFrom(_charList, _fontsByRow, _x, charIndex - 1);
+        }, err => { Console.Error.WriteLine($"RemoveSingle:{err}"); });
     }
 
     /// <summary>
@@ -139,9 +131,9 @@ public class TextBank : IEnumerable<StyledChar>
     /// </summary>
     /// <param name="pos">A Tuple representing the origin point.</param>
     /// <returns>An int representing the index of the nearest character to the origin point.</returns>
-    public int FindNearestChar((float X, float Y) pos)
+    public (int, bool) FindNearestChar((float X, float Y) pos)
     {
-        return TextUtil.NearestCharIndex(pos, _fontsByRow, _charList, true);
+        return TextUtil.Nearest(pos, _fontsByRow, _charList);
     }
 
     /// <summary>
@@ -160,6 +152,9 @@ public class TextBank : IEnumerable<StyledChar>
             false => (TextUtil.NearestCharIndex(pointTwo, _fontsByRow, _charList),
                 TextUtil.NearestCharIndex(pointOne, _fontsByRow, _charList))
         };
+        var c = TextUtil.NearestPosition(pointOne, _fontsByRow, _charList);
+        var d = TextUtil.NearestPosition(pointTwo, _fontsByRow, _charList);
+        Console.WriteLine($"A: {a}, B: {b}, C: {c.Item1}, D: {d.Item1}");
         return a < b ? (a, b) : (b, a);
     }
 
@@ -172,15 +167,9 @@ public class TextBank : IEnumerable<StyledChar>
     {
         for (var i = Math.Min(selection.End, _charList.Count - 1); i >= selection.Start; i--)
         {
-            var value = _charList.TryGetValue(i);
-            if (value.Case is not StyledChar toRemove)
-            {
-                Console.Error.WriteLine($"TextBank:RemoveSelection: Could not remove selection {i}");
-                break;
-            }
-
-            _charList.RemoveAt(i);
-            TextUtil.ReduceQuantity(_fontsByRow, toRemove.RowNum, toRemove.PtSize);
+            if (TextUtil.RemoveChar(_charList, _fontsByRow, i).Case is not Error err) continue;
+            Console.Error.WriteLine($"RemoveSelection:{err}");
+            break;
         }
 
         if (_charList.Count > 0) TextUtil.UpdateFrom(_charList, _fontsByRow, _x, selection.Start);
@@ -194,5 +183,10 @@ public class TextBank : IEnumerable<StyledChar>
     public bool IsEmpty()
     {
         return _charList.Count == 0 && _fontsByRow.Count == 0;
+    }
+
+    public RowInfo GetRowInfo(int rowNum)
+    {
+        return _fontsByRow[rowNum];
     }
 }

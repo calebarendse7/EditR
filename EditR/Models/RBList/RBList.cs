@@ -200,4 +200,9 @@ public class RbList<T> : IEnumerable<T>
             _ => throw new IndexOutOfRangeException()
         };
     }
+
+    public void Add(T key)
+    {
+        _root = InsertAux(_root, Count, key).Map(Blacken).FromResult();
+    }
 }

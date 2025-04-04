@@ -28,7 +28,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await FontService.LoadFont(_model.SelectedFont.Index);
+        await FontService.LoadFont(_model.SelectedFont.Name);
     }
 
     private void OnPaintSurface(SKPaintSurfaceEventArgs args)
@@ -37,19 +37,18 @@
         {
             _document = new Document((args.Info.Width, args.Info.Height));
             _document.UpdateSettings(_model);
+            _document.AddChar('\0', _model,  FontService.GetFont(_model.SelectedFont.Name));
         }
 
         var fonts = FontService.GetAllFonts();
-        var currentFont = fonts[_model.SelectedFont.Index];
-
         _document.DrawPages(args.Surface.Canvas, _model.Width, _model.Height);
-        _document.DrawCharacters(args.Surface.Canvas, _model.SelectedFont.Index, fonts);
-        _document.DrawCursor(args.Surface.Canvas, _model.TopMargin, _model.LeftMargin, _model.PixelSize, _model.LineSpacing, currentFont);
+        _document.DrawCharacters(args.Surface.Canvas, _model.SelectedFont.Name, fonts);
+        _document.DrawCursor(args.Surface.Canvas);
     }
 
     private void OnCanvasKeyDown(KeyboardEventArgs args)
     {
-        var currentFont = FontService.GetFont(_model.SelectedFont.Index);
+        var currentFont = FontService.GetFont(_model.SelectedFont.Name);
         switch (args.Code)
         {
             case "Space":
@@ -91,7 +90,7 @@
     private async Task OnFontSelected(FontSelectRow row)
     {
         _model.SelectedFont = row;
-        await FontService.LoadFont(row.Index);
+        await FontService.LoadFont(row.Name);
     }
 
     private void CanvasOnPointerDown(PointerEventArgs obj)

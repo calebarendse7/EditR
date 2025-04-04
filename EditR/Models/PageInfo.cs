@@ -7,12 +7,12 @@ public class PageInfo
         new()
         {
             Value = "Arial",
-            Index = 0
+            Name = Font.Arial
         },
         new()
         {
             Value = "Times New Roman",
-            Index = 1
+            Name = Font.TimesNewRoman
         }
     ];
 
@@ -22,7 +22,7 @@ public class PageInfo
     public FontSelectRow SelectedFont { get; set; } = new()
     {
         Value = "Arial",
-        Index = 0
+        Name = Font.Arial
     };
 
     public string Color { get; set; } = "#000000";

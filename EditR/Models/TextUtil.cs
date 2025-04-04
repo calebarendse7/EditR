@@ -1,4 +1,5 @@
 using EditR.Models.RBList;
+using LanguageExt;
 using SkiaSharp;
 
 namespace EditR.Models;
@@ -108,8 +109,7 @@ public static class TextUtil
         var isNextLine = false;
         if (index > 0)
         {
-            var r = charList.TryGetValue(index - 1);
-            if (r.Case is not StyledChar c)
+            if (charList.TryGetValue(index - 1).Case is not StyledChar c)
             {
                 Console.Error.WriteLine("TextUtil:UpdateFrom: Could not find previous character.");
                 return;
@@ -185,41 +185,153 @@ public static class TextUtil
     ///     row.
     /// </param>
     /// <param name="charList">An RbList of StyledChar representing the list to search.</param>
-    /// <param name="nearStart">A bool indicating if the char should be found near the start X value.  </param>
     /// <returns>An int representing the index of the nearest char.</returns>
     public static int NearestCharIndex((float X, float Y) point, Dictionary<int, RowInfo> infoByRow,
-        RbList<StyledChar> charList, bool nearStart = false)
+        RbList<StyledChar> charList)
     {
         var minDist = float.MaxValue;
         var row = -1;
         var result = -1;
-        for (var i = 0; i < infoByRow.Count; i++)
+        int k;
+        for (k = 0; k < infoByRow.Count; k++)
         {
-            var info = infoByRow[i];
-            var r = ManDist(point.Y, info.RowStart);
+            var info = infoByRow[k];
+            var r = ManDist(point.Y, info.RowOffset);
             if (r > minDist) break;
             minDist = r;
-            row = info.Index;
+            row = info.Start;
         }
 
         minDist = float.MaxValue;
         for (var i = row; i < charList.Count; i++)
         {
-            var value = charList.TryGetValue(i);
-            if (value.Case is not StyledChar c)
+            if (charList.TryGetValue(i).Case is not StyledChar c)
             {
                 Console.Error.WriteLine($"TextUtil:NearestCharIndex: Could not find char from row index {i}.");
                 break;
             }
 
-            var total = c.Column + c.Width;
-            var dist = ManDist(point.X, nearStart ? c.Column : total);
+            var dist = ManDist(point.X, c.Column);
+         
             if (dist > minDist) break;
+           
             result = i;
             minDist = dist;
-            if (nearStart && dist > ManDist(point.X, total)) result++;
         }
 
         return result;
+    }
+
+    public static Fin<Unit> RemoveChar(RbList<StyledChar> charList, Dictionary<int, RowInfo> infoByRow, int index)
+    {
+        if (charList.TryGetValue(index).Case is not StyledChar toRemove)
+            return Fin<Unit>.Fail($"TextUtil:RemoveChar: Could not find char to remove {index}");
+        charList.RemoveAt(index);
+        ReduceQuantity(infoByRow, toRemove.RowNum, toRemove.PtSize);
+        return Fin<Unit>.Succ(default);
+    }
+
+    public static (int, float, float) NearestPosition((float X, float Y) point, Dictionary<int, RowInfo> infoByRow,
+        RbList<StyledChar> charList)
+    {
+        var minDist = float.MaxValue;
+        var row = -1;
+        var indexResult = -1;
+        var rowResult = 0f;
+        var columnResult = 0f;
+
+        int k;
+        for (k = 0; k < infoByRow.Count; k++)
+        {
+            var info = infoByRow[k];
+            var r = ManDist(point.Y, info.RowOffset);
+            if (r > minDist) break;
+            minDist = r;
+            row = info.Start;
+            rowResult = info.Row;
+        }
+
+        minDist = float.MaxValue;
+        var nextRow = infoByRow.TryGetValue(k, out var next) ? next.Start : charList.Count;
+        for (var i = row; i < charList.Count; i++)
+        {
+            if (charList.TryGetValue(i).Case is not StyledChar c)
+            {
+                Console.Error.WriteLine($"TextUtil:NearestCharIndex: Could not find char from row index {i}.");
+                break;
+            }
+
+            var dist = ManDist(point.X, c.Column);
+            var result = c.Column;
+            if (i + 1 == nextRow)
+            {
+                var end = c.Column + c.Width;
+                var distEnd = ManDist(point.X, end);
+                if (dist > distEnd)
+                {
+                    result = end;
+                    dist = distEnd;
+                }
+            }
+
+            if (dist > minDist) break;
+            columnResult = result;
+            indexResult = i;
+            minDist = dist;
+        }
+
+        return (indexResult, columnResult, rowResult);
+    }
+    public static (int, bool) Nearest((float X, float Y) point, Dictionary<int, RowInfo> infoByRow,
+        RbList<StyledChar> charList)
+    {
+        var minDist = float.MaxValue;
+        var row = -1;
+        var indexResult = -1;
+        var rowResult = 0f;
+        var eol = false;
+
+        int k;
+        for (k = 0; k < infoByRow.Count; k++)
+        {
+            var info = infoByRow[k];
+            var r = ManDist(point.Y, info.RowOffset);
+            if (r > minDist) break;
+            minDist = r;
+            row = info.Start;
+            rowResult = info.Row;
+        }
+
+        minDist = float.MaxValue;
+        var nextRow = infoByRow.TryGetValue(k, out var next) ? next.Start : charList.Count;
+        for (var i = row; i < charList.Count; i++)
+        {
+            if (charList.TryGetValue(i).Case is not StyledChar c)
+            {
+                Console.Error.WriteLine($"TextUtil:NearestCharIndex: Could not find char from row index {i}.");
+                break;
+            }
+
+            var dist = ManDist(point.X, c.Column);
+            if (i + 1 == nextRow)
+            {
+                var end = c.Column + c.Width;
+                var distEnd = ManDist(point.X, end);
+                if (dist > distEnd)
+                {
+                    eol = true;
+                    dist = distEnd;
+                }
+            }
+
+            if (dist > minDist)
+            {
+                break;
+            }
+            indexResult = i;
+            minDist = dist;
+        }
+
+        return (indexResult, eol);
     }
 }

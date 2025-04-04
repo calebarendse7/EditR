@@ -1,27 +1,28 @@
 using System.Collections.Immutable;
+using EditR.Models;
 using SkiaSharp;
 
 namespace EditR.Services;
 
 public class FontService(HttpClient client) : IFontService
 {
-    private ImmutableDictionary<int, SKTypeface> _fonts = ImmutableDictionary<int, SKTypeface>.Empty;
+    private ImmutableDictionary<Font, SKTypeface> _fonts = ImmutableDictionary<Font, SKTypeface>.Empty;
 
-    public async Task LoadFont(int fontIndex)
+    public async Task LoadFont(Font name)
     {
-        if (_fonts.ContainsKey(fontIndex)) return;
-        await using var stream = await client.GetStreamAsync($"fonts/{fontIndex}.ttf");
+        if (_fonts.ContainsKey(name)) return;
+        await using var stream = await client.GetStreamAsync($"fonts/{name}.ttf");
         var t = SKTypeface.FromStream(stream);
-        _fonts = _fonts.Add(fontIndex, t);
+        _fonts = _fonts.Add(name, t);
     }
 
-    public ImmutableDictionary<int, SKTypeface> GetAllFonts()
+    public ImmutableDictionary<Font, SKTypeface> GetAllFonts()
     {
         return _fonts;
     }
 
-    public SKTypeface GetFont(int fontIndex)
+    public SKTypeface GetFont(Font name)
     {
-        return _fonts[fontIndex];
+        return _fonts[name];
     }
 }
