@@ -14,20 +14,20 @@ public class Document((float Width, float Height) canvas)
     private float _center;
     private float _cursorSize;
 
+    private bool _cursorUpdate = true;
+
     private float _cursorX;
     private float _cursorY;
     private float _drawStartY;
     private int _endSelect;
     private int _insertPos;
-    private bool _isSelected;
-    private float _pTotalHeight;
-    private int _startSelect;
-
-    private bool _cursorUpdate = true;
     private bool _isClicked;
     private bool _isEndOfLine;
+    private bool _isSelected;
     private float _lastClickedX;
     private float _lastClickedY;
+    private float _pTotalHeight;
+    private int _startSelect;
 
     /// <summary>
     ///     Updates the page
@@ -80,6 +80,7 @@ public class Document((float Width, float Height) canvas)
     public void DrawCursor(SKCanvas canvas)
     {
         if (_isSelected) return;
+
         using var cursorPaint = new SKPaint();
         cursorPaint.IsAntialias = true;
         cursorPaint.Color = SKColors.Black;
@@ -96,10 +97,14 @@ public class Document((float Width, float Height) canvas)
         if (_cursorUpdate)
         {
             var i = Math.Min(_insertPos, _textBank.Count - 1);
+
+
             _textBank[i].Match(val =>
             {
+                //Console.WriteLine($"Using value {val} for cursor, {i}/{_insertPos}");
                 var rowInfo = _textBank.GetRowInfo(val.RowNum);
-                _cursorX = _isEndOfLine ? val.Column + val.Width : val.Column;
+                //_cursorX = _isEndOfLine ? val.Column + val.Width : val.Column;
+                _cursorX = val.Column;
                 _cursorY = rowInfo.RowOffset;
                 _cursorSize = val.Size;
             }, () => Console.Error.WriteLine($"Document:DrawCursor: Could not find {i}"));
@@ -132,7 +137,7 @@ public class Document((float Width, float Height) canvas)
     /// <param name="character">A char representing the character to add.</param>
     /// <param name="pageInfo">A PageInfo representing the parameters of each page.</param>
     /// <param name="typeface">An SKTypeface representing the selected typeface.</param>
-    public void AddChar(char character, PageInfo pageInfo, SKTypeface typeface)
+    public void Add(char character, PageInfo pageInfo, SKTypeface typeface)
     {
         if (_isSelected)
         {
@@ -174,9 +179,9 @@ public class Document((float Width, float Height) canvas)
     /// <summary>
     ///     Deletes a character from the document.
     /// </summary>
-    public void DeleteChar()
+    public void DeleteLast()
     {
-        if (_textBank.Count == 1 || _insertPos - 1 < 0) return;
+        if (_textBank.Count == 1 || _insertPos == 0) return;
         if (_isSelected)
         {
             _insertPos = _textBank.RemoveSelection((_startSelect, _endSelect));
@@ -184,6 +189,7 @@ public class Document((float Width, float Height) canvas)
         }
         else
         {
+            Console.WriteLine($"Removing {_insertPos}");
             _textBank.RemoveSingle(--_insertPos);
         }
 
@@ -239,7 +245,7 @@ public class Document((float Width, float Height) canvas)
     /// </summary>
     public void PanRight()
     {
-        if (_insertPos >= _textBank.Count) return;
+        if (_insertPos >= _textBank.Count - 1) return;
         _insertPos++;
         _cursorUpdate = true;
     }

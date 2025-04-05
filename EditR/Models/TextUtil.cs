@@ -49,7 +49,7 @@ public static class TextUtil
     ///     row.
     /// </param>
     /// <param name="c">A StyledChar representing the character added to the TextBank.</param>
-    private static void UpdateFont(Dictionary<int, RowInfo> fontsByRow, StyledChar c)
+    public static void UpdateFont(Dictionary<int, RowInfo> fontsByRow, StyledChar c)
     {
         if (!fontsByRow.TryGetValue(c.RowNum, out var value))
         {
@@ -88,67 +88,6 @@ public static class TextUtil
         }
 
         current.Height = height * lineSpace;
-    }
-
-    /// <summary>
-    ///     Updates the column and row positions of the characters in the TextBank starting at a given index.
-    /// </summary>
-    /// <param name="charList">A list representing the characters in the TextBank.</param>
-    /// <param name="fontsByRow">
-    ///     A dictionary representing each font size by quantity, sorted in descending order, for each
-    ///     row.
-    /// </param>
-    /// <param name="x">A tuple of floats representing the start and end positions of the document in the x direction.</param>
-    /// <param name="index">An int representing the index of the first character to recalculate from.</param>
-    public static void UpdateFrom(RbList<StyledChar> charList,
-        Dictionary<int, RowInfo> fontsByRow,
-        (float Start, float End) x, int index)
-    {
-        var column = x.Start;
-        var rowNumber = 0;
-        var isNextLine = false;
-        if (index > 0)
-        {
-            if (charList.TryGetValue(index - 1).Case is not StyledChar c)
-            {
-                Console.Error.WriteLine("TextUtil:UpdateFrom: Could not find previous character.");
-                return;
-            }
-
-            rowNumber = c.RowNum;
-            column = c.Column + c.Width;
-            isNextLine = c.Value == '\n';
-        }
-
-        for (var i = index; i < charList.Count; i++)
-        {
-            var result = charList.TryGetValue(i);
-            if (result.Case is not StyledChar c) break;
-            if (column + c.Width > x.End || isNextLine)
-            {
-                column = x.Start;
-                rowNumber++;
-            }
-
-            isNextLine = c.Value == '\n';
-
-            var storedRow = c.RowNum;
-            c.Column = column;
-            c.RowNum = rowNumber;
-
-            // If the character was on a different row
-            if (storedRow == -1)
-            {
-                UpdateFont(fontsByRow, c);
-            }
-            else if (storedRow != rowNumber)
-            {
-                ReduceQuantity(fontsByRow, storedRow, c.PtSize);
-                UpdateFont(fontsByRow, c);
-            }
-
-            column += c.Width;
-        }
     }
 
     /// <summary>
@@ -212,9 +151,9 @@ public static class TextUtil
             }
 
             var dist = ManDist(point.X, c.Column);
-         
+
             if (dist > minDist) break;
-           
+
             result = i;
             minDist = dist;
         }
@@ -282,6 +221,7 @@ public static class TextUtil
 
         return (indexResult, columnResult, rowResult);
     }
+
     public static (int, bool) Nearest((float X, float Y) point, Dictionary<int, RowInfo> infoByRow,
         RbList<StyledChar> charList)
     {
@@ -324,10 +264,7 @@ public static class TextUtil
                 }
             }
 
-            if (dist > minDist)
-            {
-                break;
-            }
+            if (dist > minDist) break;
             indexResult = i;
             minDist = dist;
         }

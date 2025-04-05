@@ -12,13 +12,14 @@ public class TextBank
     private readonly RbList<StyledChar> _charList = [];
     private readonly Dictionary<int, RowInfo> _fontsByRow = [];
     private float _bottomMargin;
+    private bool _isChanged = true;
+
+    private int _lastChangedIndex;
 
     private float _offsetHeight;
     private float _rStart;
     private (float Start, float End) _x;
     private (float Start, float Height, float THeight) _y;
-
-    private int _lastChangedIndex;
 
     public int Count => _charList.Count;
 
@@ -33,8 +34,14 @@ public class TextBank
         var pNum = 0;
         var rStartOffset = _rStart;
         var rEnd = _offsetHeight - _bottomMargin;
-
         RowInfo? rowInfo = null;
+
+        StyledChar? prev = null;
+        var isUpdateStarted = false;
+        var column = _x.Start;
+        var row = 0;
+        var isNewLine = false;
+
         for (var i = 0; i < _charList.Count; i++)
         {
             var value = _charList.TryGetValue(i);
@@ -44,12 +51,56 @@ public class TextBank
                 break;
             }
 
+            // Dynamically shift characters when added or deleted.
+            if (_isChanged && i >= _lastChangedIndex)
+            {
+                if (prev is not null && !isUpdateStarted)
+                {
+                    column = prev.Column + prev.Width;
+                    row = prev.RowNum;
+                    isNewLine = prev.Value == '\n';
+                }
+
+                if (!isUpdateStarted) Console.WriteLine($"Updating from index {_lastChangedIndex}, {item}");
+                isUpdateStarted = true;
+                if (column + item.Width > _x.End || isNewLine)
+                {
+                    column = _x.Start;
+                    row++;
+                }
+
+                isNewLine = item.Value == '\n';
+
+                var storedRow = item.RowNum;
+                item.Column = column;
+                item.RowNum = row;
+
+                if (storedRow == -1)
+                {
+                    TextUtil.UpdateFont(_fontsByRow, item);
+                }
+                else if (storedRow != row)
+                {
+                    TextUtil.ReduceQuantity(_fontsByRow, storedRow, item.PtSize);
+                    TextUtil.UpdateFont(_fontsByRow, item);
+                }
+
+                column += item.Width;
+            }
+
             if (cRow == item.RowNum && rowInfo is not null)
             {
+                prev = item;
                 action(item, rowInfo, i);
                 continue;
             }
 
+
+            if (item.RowNum == -1)
+                Console.WriteLine($"TextBank:Each: Item not initialized: {i}, last changed: {_lastChangedIndex}");
+
+
+            // Fetch next row information and move row value forward appropriately.
             if (!_fontsByRow.TryGetValue(++cRow, out rowInfo))
             {
                 Console.Error.WriteLine(
@@ -64,14 +115,15 @@ public class TextBank
                 var pStart = _y.THeight * pNum;
                 rEnd = _offsetHeight + pStart - _bottomMargin;
                 rStartOffset = _rStart + pStart + rowInfo.Height;
-
             }
 
             rowInfo.RowOffset = rStartOffset;
             rowInfo.Start = i;
+            prev = item;
             action(item, rowInfo, i);
         }
 
+        if (isUpdateStarted) _isChanged = false;
         PageNum = pNum;
     }
 
@@ -100,9 +152,9 @@ public class TextBank
     /// </summary>
     public void Add(StyledChar item, int charPosition)
     {
+        if (!_isChanged) _lastChangedIndex = charPosition;
         _charList.Insert(charPosition, item);
-        _lastChangedIndex = charPosition;
-        //TextUtil.UpdateFrom(_charList, _fontsByRow, _x, charPosition);
+        _isChanged = true;
     }
 
     /// <summary>
@@ -112,7 +164,8 @@ public class TextBank
     {
         TextUtil.RemoveChar(_charList, _fontsByRow, charIndex).Match(_ =>
         {
-            if (_charList.Count > 0) TextUtil.UpdateFrom(_charList, _fontsByRow, _x, charIndex - 1);
+            _lastChangedIndex = Math.Min(charIndex, _lastChangedIndex);
+            _isChanged = true;
         }, err => { Console.Error.WriteLine($"RemoveSingle:{err}"); });
     }
 
@@ -152,9 +205,7 @@ public class TextBank
             false => (TextUtil.NearestCharIndex(pointTwo, _fontsByRow, _charList),
                 TextUtil.NearestCharIndex(pointOne, _fontsByRow, _charList))
         };
-        var c = TextUtil.NearestPosition(pointOne, _fontsByRow, _charList);
-        var d = TextUtil.NearestPosition(pointTwo, _fontsByRow, _charList);
-        Console.WriteLine($"A: {a}, B: {b}, C: {c.Item1}, D: {d.Item1}");
+
         return a < b ? (a, b) : (b, a);
     }
 
@@ -172,7 +223,7 @@ public class TextBank
             break;
         }
 
-        if (_charList.Count > 0) TextUtil.UpdateFrom(_charList, _fontsByRow, _x, selection.Start);
+        //if (_charList.Count > 0) TextUtil.UpdateFrom(_charList, _fontsByRow, _x, selection.Start);
         return selection.Start;
     }
 

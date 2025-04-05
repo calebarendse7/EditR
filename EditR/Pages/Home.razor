@@ -37,7 +37,7 @@
         {
             _document = new Document((args.Info.Width, args.Info.Height));
             _document.UpdateSettings(_model);
-            _document.AddChar('\0', _model,  FontService.GetFont(_model.SelectedFont.Name));
+            _document.Add('\0', _model, FontService.GetFont(_model.SelectedFont.Name));
         }
 
         var fonts = FontService.GetAllFonts();
@@ -52,16 +52,16 @@
         switch (args.Code)
         {
             case "Space":
-                _document?.AddChar(' ', _model, currentFont);
+                _document?.Add(' ', _model, currentFont);
                 break;
             case "Enter":
-                _document?.AddChar('\n', _model, currentFont);
+                _document?.Add('\n', _model, currentFont);
                 break;
             case "Backspace":
-                _document?.DeleteChar();
+                _document?.DeleteLast();
                 break;
             case "Tab":
-                _document?.AddChar('\t', _model, currentFont);
+                _document?.Add('\t', _model, currentFont);
                 break;
             case "ArrowRight":
                 _document?.PanRight();
@@ -72,7 +72,7 @@
             default:
                 if (args.Key.Length == 1)
                 {
-                    _document?.AddChar(args.Key[0], _model, currentFont);
+                    _document?.Add(args.Key[0], _model, currentFont);
                 }
 
                 break;
