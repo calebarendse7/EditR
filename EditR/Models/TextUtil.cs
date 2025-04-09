@@ -53,7 +53,7 @@ public static class TextUtil
     {
         if (!fontsByRow.TryGetValue(c.RowNum, out var value))
         {
-            value = new RowInfo { Height = 0 };
+            value = new RowInfo();
             fontsByRow.Add(c.RowNum, value);
         }
 
@@ -77,17 +77,24 @@ public static class TextUtil
     /// <param name="rowNum">An int representing the row number.</param>
     /// <param name="current">A RowInfo representing the current row.</param>
     /// <param name="lineSpace">A float representing the line spacing for the document.</param>
-    private static void Update(Dictionary<int, RowInfo> fontsByRow, RowInfo current, int rowNum, float lineSpace)
+    private static bool Update(Dictionary<int, RowInfo> fontsByRow, RowInfo current, int rowNum, float lineSpace)
     {
-        if (current.SizeByMetric.Count == 0) return;
+        if (current.SizeByMetric.Count == 0) return false;
         var (size, (height, _, _)) = current.SizeByMetric.Last();
         if (fontsByRow.TryGetValue(rowNum - 1, out var lastVal) && lastVal.SizeByMetric.Count > 0)
         {
             var (prevSize, (_, padding, _)) = lastVal.SizeByMetric.Last();
+            if (size == current.LargestSize && prevSize == lastVal.LargestSize) return false;
             if (prevSize > size) height += padding;
+        }
+        else if (size == current.LargestSize)
+        {
+            return false;
         }
 
         current.Height = height * lineSpace;
+        current.LargestSize = size;
+        return true;
     }
 
     /// <summary>

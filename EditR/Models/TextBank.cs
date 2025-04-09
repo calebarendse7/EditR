@@ -36,33 +36,30 @@ public class TextBank
         var rEnd = _offsetHeight - _bottomMargin;
         RowInfo? rowInfo = null;
 
-        StyledChar? prev = null;
+
         var isUpdateStarted = false;
         var column = _x.Start;
         var row = 0;
         var isNewLine = false;
 
-        for (var i = 0; i < _charList.Count; i++)
+        if (_isChanged)
         {
-            var value = _charList.TryGetValue(i);
-            if (value.Case is not StyledChar item)
+            isUpdateStarted = true;
+            _charList.TryGetValue(_lastChangedIndex - 1).IfSome(val =>
             {
-                Console.Error.WriteLine($"TextBank:Each: Could find {i}");
-                break;
-            }
-
-            // Dynamically shift characters when added or deleted.
-            if (_isChanged && i >= _lastChangedIndex)
+                column = val.Column + val.Width;
+                row = val.RowNum;
+                isNewLine = val.Value == '\n';
+            });
+            for (var i = _lastChangedIndex; i < _charList.Count; i++)
             {
-                if (prev is not null && !isUpdateStarted)
+                var value = _charList.TryGetValue(i);
+                if (value.Case is not StyledChar item)
                 {
-                    column = prev.Column + prev.Width;
-                    row = prev.RowNum;
-                    isNewLine = prev.Value == '\n';
+                    Console.Error.WriteLine($"TextBank:Each: Could find {i}");
+                    break;
                 }
-
-                if (!isUpdateStarted) Console.WriteLine($"Updating from index {_lastChangedIndex}, {item}");
-                isUpdateStarted = true;
+                
                 if (column + item.Width > _x.End || isNewLine)
                 {
                     column = _x.Start;
@@ -77,28 +74,35 @@ public class TextBank
 
                 if (storedRow == -1)
                 {
+                    // The largest font may change here. So previous lines may have to be moved. 
                     TextUtil.UpdateFont(_fontsByRow, item);
                 }
                 else if (storedRow != row)
                 {
+                    // The largest font may change here. So previous lines may have to be moved. 
                     TextUtil.ReduceQuantity(_fontsByRow, storedRow, item.PtSize);
                     TextUtil.UpdateFont(_fontsByRow, item);
                 }
 
                 column += item.Width;
             }
+        }
+
+        for (var i = 0; i < _charList.Count; i++)
+        {
+            var value = _charList.TryGetValue(i);
+            if (value.Case is not StyledChar item)
+            {
+                Console.Error.WriteLine($"TextBank:Each: Could find {i}");
+                break;
+            }
 
             if (cRow == item.RowNum && rowInfo is not null)
             {
-                prev = item;
+                // Call draw function
                 action(item, rowInfo, i);
                 continue;
             }
-
-
-            if (item.RowNum == -1)
-                Console.WriteLine($"TextBank:Each: Item not initialized: {i}, last changed: {_lastChangedIndex}");
-
 
             // Fetch next row information and move row value forward appropriately.
             if (!_fontsByRow.TryGetValue(++cRow, out rowInfo))
@@ -119,7 +123,7 @@ public class TextBank
 
             rowInfo.RowOffset = rStartOffset;
             rowInfo.Start = i;
-            prev = item;
+            // Call draw function
             action(item, rowInfo, i);
         }
 
